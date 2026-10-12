@@ -367,14 +367,6 @@ class _DispatchExecutorMixin:
 
     @staticmethod
     def _normalize_workspace_paths(cmd: str, target: str) -> str:
-        """Rewrite paths that would create nested workspace dirs.
-
-        Since the agent already `cd`'d into /workspace/<target>,
-        any path reference to <target> in output files should be relative.
-
-        E.g. ``amass -o target.com/output/file.txt`` becomes ``amass -o output/file.txt``
-        E.g. ``mkdir target.com/output`` becomes ``mkdir output``
-        """
         if not cmd or not target:
             return cmd
 
@@ -985,7 +977,6 @@ class _DispatchExecutorMixin:
     async def _exec_load_skill(
         self, tool_name: str, arguments: dict[str, Any]
     ) -> tuple[bool, float, dict[str, Any], str | None]:
-        """Execute load_skill tool — dynamically load skill files into session."""
         start_time = time.time()
 
         try:

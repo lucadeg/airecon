@@ -126,12 +126,6 @@ def _tool_usage_total(row: sqlite3.Row | dict[str, Any]) -> int:
 
 
 def rollup_tool_usage_rows(rows: list[sqlite3.Row | dict[str, Any]]) -> list[dict[str, Any]]:
-    """Collapse per-target tool rows into one cross-session stat row per tool.
-
-    If a global aggregate row exists (`target=''` or NULL), prefer it over
-    summing target-scoped rows. This avoids double-counting when adaptive
-    learning syncs an aggregate snapshot back into SQLite.
-    """
     grouped: dict[str, list[sqlite3.Row | dict[str, Any]]] = {}
     for row in rows:
         tool_name = str(_tool_usage_row_get(row, "tool_name", "") or "").strip()
@@ -904,7 +898,6 @@ class MemoryManager:
         current_phase: str,
         max_tokens: int = 4096,
     ) -> str:
-        """Build comprehensive context including memory, patterns, and tool insights."""
         context_parts = []
         tokens_used = 0
 
@@ -1132,9 +1125,6 @@ class MemoryManager:
         }
 
     def get_model_performance_insights(self) -> dict[str, Any]:
-        """
-        Get model performance insights to help the agent choose the right model.
-        """
         if not self.conn:
             return {}
 
@@ -1240,10 +1230,6 @@ class MemoryManager:
     def get_skill_recommendations(
         self, target: str, current_phase: str
     ) -> list[dict[str, Any]]:
-        """
-        Get skill recommendations based on past performance.
-        Returns skills that were effective for similar targets/phases.
-        """
         if not self.conn:
             return []
 
@@ -1353,9 +1339,6 @@ class MemoryManager:
         effectiveness_score: float,
         tokens_saved: int,
     ) -> None:
-        """
-        Record skill usage outcome for learning.
-        """
         if not self.conn:
             return
 
@@ -1541,7 +1524,6 @@ class MemoryManager:
         self.conn.commit()
 
     def save_chain_discovery(self, chain_data: dict[str, Any]) -> None:
-        """Save a discovered attack chain for cross-session learning."""
         if not self.conn:
             return
 
@@ -1568,7 +1550,6 @@ class MemoryManager:
         self.conn.commit()
 
     def get_learned_chains(self, target: str = "", limit: int = 10) -> list[dict[str, Any]]:
-        """Get previously discovered chains for cross-session learning."""
         if not self.conn:
             return []
 

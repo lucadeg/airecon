@@ -149,7 +149,6 @@ def _choose_confirm_tool(vuln_name: str, indicators: list[str]) -> str:
 
 
 def _load_exploit_heavy_tools() -> frozenset[str]:
-    """Load exploit heavy tools from tools_meta.json."""
     try:
         path = Path(__file__).parent.parent / "data" / "tools_meta.json"
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -165,12 +164,6 @@ _PHASE_PROMPTS_DIR = Path(__file__).parent.parent / "prompts" / "phases"
 
 
 def _load_phase_objectives() -> dict[str, list[str]]:
-    """Load phase objectives from prompts/phases/*.txt files.
-    
-    Reads the first few lines (OBJECTIVE section) from each phase prompt file
-    to extract key objectives without loading the entire prompt text.
-    Falls back to empty dict if files not found.
-    """
     objectives: dict[str, list[str]] = {}
     if not _PHASE_PROMPTS_DIR.exists():
         return objectives
@@ -209,7 +202,6 @@ def _load_phase_objectives() -> dict[str, list[str]]:
 
 
 def _build_vuln_hypo_index() -> list[dict[str, Any]]:
-    """Build hypothesis index from unified pattern catalog at module import time."""
     raw_hypotheses = load_vuln_hypothesis_legacy()
     if not raw_hypotheses:
         return []
@@ -1004,12 +996,6 @@ class _ObjectivesMixin:
         self._check_evidence_corroboration(phase, tool_name)
 
     def _check_evidence_corroboration(self, phase: str, current_tool: str) -> None:
-        """Detect independently corroborated evidence signals across tool calls.
-
-        When the same tag appears in evidence from 2+ different tool sources,
-        it's much less likely to be a false positive. We record this as a
-        separate high-confidence evidence entry so the LLM sees the pattern.
-        """
         if not self.state or len(self.state.evidence_log) < 2:
             return
 
@@ -1060,11 +1046,6 @@ class _ObjectivesMixin:
     # writes the claim and interprets the verdict.
 
     def _verify_confirmed_hypotheses(self) -> list[str]:
-        """Promote confirmed hypotheses to 'verified' when independent evidence backs them.
-
-        Returns list of hypothesis IDs newly promoted so the caller can
-        surface a [VERIFICATION] note to the LLM.
-        """
         if not self.state:
             return []
         queue = getattr(self.state, "hypothesis_queue", None) or []
@@ -1131,9 +1112,6 @@ class _ObjectivesMixin:
         return newly_verified
 
     def _build_verification_note(self, verified_ids: list[str]) -> str:
-        """Build a system note telling the LLM which hypotheses now have
-        independent cross-tool evidence (not just self-declared confirmation).
-        """
         if not verified_ids:
             return ""
         queue = getattr(self.state, "hypothesis_queue", None) or []
@@ -1161,13 +1139,6 @@ class _ObjectivesMixin:
 
     @staticmethod
     def _load_vuln_hypo_index() -> list[dict[str, Any]]:
-        """Build hypothesis index from data/patterns.json.
-
-        Returns a list of dicts keyed by pattern name, each with:
-        - indicators: set of lowercase indicator words/phrases
-        - description: human-readable description
-        - suggested_actions: list of recommended test actions
-        """
         _patterns_path = Path(__file__).parent.parent / "data" / "patterns.json"
         if not _patterns_path.exists():
             return []
@@ -1210,13 +1181,6 @@ class _ObjectivesMixin:
 
     @staticmethod
     def _load_vuln_hypo_patterns() -> list[tuple[re.Pattern, str, str]]:
-        """Load vuln hypothesis patterns dynamically from data sources.
-
-        Patterns are derived from:
-        1. unified pattern catalog — hypothesis indicators
-        2. system.txt §11 — vulnerability priority terms
-        3. skills/vulnerabilities/ — skill file names as indicators
-        """
         patterns: list[tuple[re.Pattern, str, str]] = []
 
         # Source 1: unified pattern catalog hypothesis indicators
@@ -1442,14 +1406,6 @@ class _ObjectivesMixin:
         return ""
 
     def _check_tool_budget(self, tool_name: str, phase: str) -> str:
-        """Emit advisory messages when a tool is over-budget or consistently low-yield.
-
-        Thresholds are loaded from data/validation_config.json (tool_budget section)
-        and are phase-aware: EXPLOIT phase gets a higher call allowance and lower
-        hit-rate floor to accommodate WAF bypass and iterative probing scenarios.
-        An evidence-growth exemption prevents false pivots when the agent is actively
-        making progress (evidence_log growing) despite a low per-tool hit-rate.
-        """
         is_exploit = phase.upper() == "EXPLOIT"
         _min_calls    = _BUDGET_EXPLOIT_MIN_CALLS  if is_exploit else _BUDGET_DEFAULT_MIN_CALLS
         _warn_thresh  = _BUDGET_EXPLOIT_THRESHOLD   if is_exploit else _BUDGET_DEFAULT_THRESHOLD

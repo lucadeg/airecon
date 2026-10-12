@@ -468,7 +468,7 @@ async def test_schemathesis_malformed_max_examples(agent, mocker):
     )
     assert success is True
     called_cmd = mock_exec.call_args[0][1]["command"]
-    assert "--hypothesis-max-examples 30" in called_cmd
+    assert "--max-examples 30" in called_cmd
 
 
 @pytest.mark.asyncio

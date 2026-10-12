@@ -654,7 +654,6 @@ class AgentLoop(
         return merged
 
     async def _save_session_persistence(self) -> None:
-        """Save payload memory and adaptive learning state to workspace."""
         try:
             cfg = get_config()
             if not cfg.session_persistence_enabled:
@@ -721,7 +720,6 @@ class AgentLoop(
             logger.warning("Operation failed: %s", e)
 
     async def _load_session_persistence(self) -> None:
-        """Load payload memory and adaptive learning state from workspace."""
         try:
             cfg = get_config()
             if not cfg.session_persistence_enabled:

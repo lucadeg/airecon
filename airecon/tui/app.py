@@ -2675,10 +2675,6 @@ class AIReconApp(App):
             self.exit()
 
     def on_text_selected(self) -> None:
-        """Fires on mouse-up after a drag-selection in the terminal.
-        See textual.screen → `post_message(events.TextSelected())`.
-        Covers chat, tool-output, and any other text panels without
-        per-widget instrumentation."""
         try:
             selected = (self.screen.get_selected_text() or "").strip()
         except Exception as e:

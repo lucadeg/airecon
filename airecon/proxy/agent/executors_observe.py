@@ -74,12 +74,6 @@ _COOKIE_NAME_BLACKLIST = {"", "expires", "path", "domain", "max-age", "secure", 
 
 
 def _registrable_host(url: str) -> str:
-    """Return the normalized hostname used as the session key.
-
-    Keeps full hostname (subdomains included) so cookies for
-    ``api.example.com`` do not leak to ``auth.example.com``. Caller is
-    responsible for scope checks — this is just a stable key.
-    """
     try:
         host = urlparse(url).hostname or ""
     except Exception as _e:
@@ -89,11 +83,6 @@ def _registrable_host(url: str) -> str:
 
 
 def _parse_set_cookie_headers(raw_http: str) -> dict[str, str]:
-    """Extract cookies from raw HTTP response text.
-
-    Handles multiple Set-Cookie lines. Only returns ``name=value`` pairs;
-    all cookie attributes (path, secure, etc.) are stripped.
-    """
     cookies: dict[str, str] = {}
     if not raw_http:
         return cookies
@@ -135,12 +124,6 @@ _CSRF_COOKIE_NAMES = frozenset(
 def _extract_csrf_token(
     body_excerpt: str, harvested_cookies: dict[str, str]
 ) -> dict[str, str]:
-    """Return {token, field, source} if a CSRF/authenticity token is found.
-
-    Looks at three common shapes: meta-tag, hidden form input, and common
-    CSRF cookie names. Returns an empty dict when nothing matches so the
-    caller can no-op.
-    """
     if harvested_cookies:
         for name, value in harvested_cookies.items():
             if not name:
@@ -170,12 +153,6 @@ def _extract_csrf_token(
 
 
 def _detect_rate_limit(status_code: int, headers: dict[str, str] | None) -> dict[str, Any] | None:
-    """Return rate-limit signal if present, else None.
-
-    Uses HTTP status (429, 503 with retry-after) and common headers
-    (``retry-after``, ``x-ratelimit-remaining``). Generic — no target-specific
-    hardcoding.
-    """
     if headers is None:
         headers = {}
     lower = {k.lower(): str(v) for k, v in headers.items()}
@@ -795,19 +772,18 @@ class _ObserveExecutorMixin:
         import shlex
 
         cmd_parts = [
-            "python3 -m schemathesis run",
+            "schemathesis run",
             shlex.quote(schema_url),
         ]
         if base_url:
-            cmd_parts.extend(["--base-url", shlex.quote(base_url)])
+            cmd_parts.extend(["--url", shlex.quote(base_url)])
         if auth_header:
             cmd_parts.extend(["--header", shlex.quote(f"Authorization: {auth_header}")])
         if checks:
             cmd_parts.extend(["--checks", shlex.quote(",".join(checks))])
-        cmd_parts.append(f"--hypothesis-max-examples {int(max_examples)}")
+        cmd_parts.append(f"--max-examples {int(max_examples)}")
         cmd_parts.append("--request-timeout 15")
         cmd_parts.append("--output-truncate false")
-        cmd_parts.append("--code-sample-style python")
         active_target = self.state.active_target or "unknown"
         workspace_dir = shlex.quote(f"/workspace/{active_target}")
         output_file = shlex.quote(

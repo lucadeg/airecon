@@ -13,12 +13,6 @@ with open(Path(__file__).parent / "prompts" / "system.txt", "r") as f:
     SYSTEM_PROMPT = f.read()
 
 def _is_ctf_target(target: str | None = None, user_message: str | None = None) -> bool:
-    """Automatic CTF classification is intentionally disabled.
-
-    Engagement mode should not be inferred from heuristics or sidecar hint files.
-    The model receives the user's request directly and must reason from that
-    request instead of hidden mode classifiers.
-    """
     _ = (target, user_message)
     return False
 
@@ -38,11 +32,6 @@ def _is_pentest_target(
 
 
 def _load_local_skills(ctf_mode: bool = False) -> str:
-    """Build the <available_skills> block for the system prompt.
-
-    Lists every skill by its exact stem name so the LLM can call
-    read_file with a precise path instead of guessing filenames.
-    """
     skills_dir = Path(__file__).resolve().parent / "skills"
     if not skills_dir.exists():
         return ""
@@ -107,7 +96,6 @@ _SKILL_KEYWORDS: dict[str, str] = _load_skill_keywords()
 
 
 def _build_skill_keyword_density(keywords: dict[str, str]) -> dict[str, int]:
-    """Count keyword entries per skill path — higher = more broadly referenced."""
     density: dict[str, int] = {}
     for skill_path in keywords.values():
         density[skill_path] = density.get(skill_path, 0) + 1
@@ -136,18 +124,12 @@ _PHASE_SKILL_CATEGORIES: dict[str, set[str]] = {
 
 
 def _phase_preferred_skill_dirs(phase: str) -> set[str]:
-    """Return the skill directory names preferred for the given phase."""
     return _PHASE_SKILL_CATEGORIES.get(phase.upper() if phase else "", set())
 
 
 def _discover_all_skills(
     skills_dir: Path,
 ) -> dict[str, str]:
-    """Scan the skills directory and return {relative_path: stem} for all .md files.
-
-    This replaces hardcoded _PHASE_ENTRY_SKILLS — skills are discovered at runtime
-    from the filesystem, making the system adaptive to new skills added to the repo.
-    """
     import os
 
     skills: dict[str, str] = {}
@@ -170,14 +152,6 @@ def _select_phase_skills(
     session_loaded: set[str] | None = None,
     max_skills: int = 3,
 ) -> list[str]:
-    """Select skills relevant to the phase, excluding already-loaded ones.
-
-    Skills are ranked by keyword density (how many keyword entries map to them
-    in the full vocabulary) so that broadly-referenced skills are preferred
-    over niche ones. Uses the precomputed _SKILL_KEYWORD_DENSITY so that
-    per-test _SKILL_KEYWORDS mocks do not distort phase-fallback ranking.
-    Within the same density, alphabetical order provides a stable tiebreaker.
-    """
     if not phase or not all_skills:
         return []
 
@@ -201,7 +175,6 @@ def _select_phase_skills(
 
 
 def _message_skill_char_budget(ctx_tokens: int) -> tuple[int, int]:
-    """Return (tools/recon char limit, other skill char limit) scaled to context size."""
     ctx = max(4096, int(ctx_tokens or 0))
     if ctx >= 65536:
         return 6000, 2500
@@ -558,14 +531,6 @@ unless you reproduce it, understand WHY, and can demonstrate real impact.
 
 
 def _build_mcp_server_hint() -> str:
-    """List currently enabled MCP servers by name in the system prompt.
-
-    The LLM sees ``mcp_<server>`` entries in its tool list, but without a name
-    roster it has no way to know WHICH servers exist and what they are.
-    This block is intentionally shallow: it reports names + short description
-    from config (if present). Tool discovery still happens via
-    ``action="list_tools"`` / ``action="search_tools"`` at call time.
-    """
     try:
         from .mcp import list_mcp_servers
     except Exception as e:

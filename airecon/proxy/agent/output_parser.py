@@ -452,7 +452,6 @@ _DYNAMIC_VULN_PATTERNS: list[tuple[str, str, float]] = []
 
 
 def _load_vuln_patterns() -> list[tuple[str, str, float]]:
-    """Load vulnerability hint patterns from data files dynamically."""
     patterns = []
     try:
         from pathlib import Path
@@ -486,7 +485,6 @@ def _load_vuln_patterns() -> list[tuple[str, str, float]]:
 
 
 def _get_vuln_hint_re() -> re.Pattern[str]:
-    """Get dynamically loaded vulnerability hint regex."""
     global _DYNAMIC_VULN_PATTERNS
     if not _DYNAMIC_VULN_PATTERNS:
         _DYNAMIC_VULN_PATTERNS = _load_vuln_patterns()

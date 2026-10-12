@@ -94,12 +94,6 @@ _KNOWN_SHELL_BINARIES = _collect_known_shell_binaries()
 class _ToolCycleMixin(_CyclePreludeMixin, _CycleLlmMixin, _CyclePostMixin):
     @staticmethod
     def _looks_like_model_refusal(text: str) -> bool:
-        """True if assistant text matches a known refusal phrasing.
-
-        Markers are loaded from data/refusal_markers.json. Used only to label an
-        LLM-side refusal clearly — it is not an AIRecon bug. Caller gates this on
-        an active assessment + a text-only turn with no tool call.
-        """
         if not _REFUSAL_MARKERS or not text:
             return False
         low = text.lower()
@@ -107,13 +101,6 @@ class _ToolCycleMixin(_CyclePreludeMixin, _CycleLlmMixin, _CyclePostMixin):
 
     @staticmethod
     def _looks_like_awaiting_input(text: str) -> bool:
-        """True if the model is asking for a new target/objective.
-
-        Markers are loaded from data/awaiting_input_markers.json. Used only in
-        the text-only watchdog abort path to end gracefully (the model considers
-        the step finished and is awaiting operator input) rather than emitting an
-        alarming 'stuck/recovery failed' error.
-        """
         if not _AWAITING_INPUT_MARKERS or not text:
             return False
         low = text.lower()
@@ -290,7 +277,6 @@ class _ToolCycleMixin(_CyclePreludeMixin, _CycleLlmMixin, _CyclePostMixin):
         tool_name: str,
         raw_command: str,
     ) -> str | None:
-        """After repeated failures, suggest alternative tools from tools_meta.json."""
         if not _TOOLS_META or not _KNOWN_SHELL_BINARIES:
             return None
 

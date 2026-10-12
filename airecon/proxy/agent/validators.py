@@ -16,13 +16,6 @@ from .utils import is_host_in_scope
 logger = logging.getLogger("airecon.validation")
 
 def _poc_type_min_length(poc_code: str) -> int:
-    """Return the minimum acceptable PoC length for the given code type.
-
-    These numbers reflect the natural size of each format, not arbitrary policy:
-    - curl one-liners are valid at 20+ chars (e.g. `curl https://t.co/admin`)
-    - bash/HTTP raw requests need a bit more structure: 22-28 chars
-    - Python needs at least an import line: 40 chars
-    """
     lower = poc_code.lstrip().lower()
     if lower.startswith("curl "):
         return 20

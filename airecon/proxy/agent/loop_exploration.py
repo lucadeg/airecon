@@ -119,7 +119,6 @@ class _ExplorationMixin:
         duration: float = 0.0,
         output_size: int = 0,
     ) -> None:
-        """Record tool usage to cross-session memory for learning."""
         try:
             from ..memory import get_memory_manager
 
@@ -330,7 +329,6 @@ class _ExplorationMixin:
     _DATASET_HINT_REPEAT_EVERY: int = 4
 
     def _dataset_search_called_recently(self, window: int = 10) -> bool:
-        """Return True if dataset_search appears in the last `window` tool results."""
         seen = 0
         for msg in reversed(self.state.conversation):  # type: ignore[attr-defined]
             role = msg.get("role", "")
@@ -343,20 +341,6 @@ class _ExplorationMixin:
         return False
 
     def _build_dataset_hint(self, phase: PipelinePhase) -> str:
-        """Return a dataset_search reminder when the LLM has not used it recently.
-
-        Fires on every phase transition AND every _DATASET_HINT_REPEAT_EVERY
-        iterations while dataset_search has not been called in the last 10 tool
-        results.  Silenced when:
-        - No datasets installed at ~/.airecon/datasets/
-        - Phase is REPORT
-        - dataset_search was already called recently
-
-        Covered phases and their installed categories:
-          RECON   → 'recon' (playbooks), 'network', 'api', 'web'
-          ANALYSIS → 'pentest', 'bug-bounty', 'web', 'api'
-          EXPLOIT  → 'pentest', 'vulnerability', 'bug-bounty'
-        """
         # REPORT phase needs no knowledge-base lookup
         if phase == PipelinePhase.REPORT:
             return ""
@@ -458,12 +442,6 @@ class _ExplorationMixin:
     # ── Web search RECON phase hint ────────────────────────────────────
 
     def _build_web_search_hint(self, phase: PipelinePhase) -> str:
-        """Return a one-time web_search suggestion at RECON phase start.
-
-        Fires once per session (RECON entry). Skipped if no technologies
-        are detected yet (too early) or already injected.
-        Includes both CVE research and Google dork examples for sensitive exposure.
-        """
         if getattr(self, "_web_search_hint_injected", False):
             return ""
 
@@ -523,7 +501,6 @@ class _ExplorationMixin:
     # ── Dynamic vuln class tracking from data sources ──────────────────
 
     def _get_tested_vuln_classes(self) -> set[str]:
-        """Extract vulnerability classes already tested — all sources dynamic."""
         tested: set[str] = set()
 
         # 1. From evidence log tags
@@ -570,7 +547,6 @@ class _ExplorationMixin:
         return tested
 
     def _get_vuln_terms_from_system_prompt(self) -> list[str]:
-        """Parse vulnerability terms from system.txt §11 dynamically."""
         if hasattr(self, "_cached_vuln_terms"):
             return self._cached_vuln_terms
 
@@ -635,7 +611,6 @@ class _ExplorationMixin:
         return terms
 
     def _get_untested_vuln_classes(self, tested: set[str]) -> set[str]:
-        """Return vuln classes not yet tested — sourced from data files only."""
         all_classes = set()
 
         # Source 1: ontology categories and child labels
@@ -678,16 +653,6 @@ class _ExplorationMixin:
         injection_points: list,
         iteration: int,
     ) -> list[str]:
-        """Generate tactics dynamically from session context and data sources.
-
-        No hardcoded vuln lists, tech stacks, URL patterns, or attack vectors.
-        All tactics are derived from:
-        - system.txt §11 (vuln priorities)
-        - skills catalog (vuln skills, tech skills, methodology skills)
-        - tools_meta.json (tool descriptions, categories)
-        - Session context (tech stack, URLs, injection points)
-        - What has already been tested vs what remains
-        """
         tactics: list[str] = []
         tech_names = list(technologies.keys()) if technologies else []
 
@@ -725,7 +690,6 @@ class _ExplorationMixin:
     def _tactic_for_vuln_class(
         self, vuln_class: str, tech_names: list, urls: list, injection_points: list
     ) -> str | None:
-        """Generate tactic for a vuln class — sourced from skills catalog, not hardcoded."""
         tech_context = (
             f" (target uses: {', '.join(tech_names[:3])})" if tech_names else ""
         )
@@ -753,7 +717,6 @@ class _ExplorationMixin:
         )
 
     def _load_vuln_skill_content(self, vuln_class: str) -> str | None:
-        """Load skill file content for a vulnerability class if available."""
         try:
             skills_dir = Path(__file__).parent.parent / "skills" / "vulnerabilities"
             if not skills_dir.is_dir():
@@ -809,7 +772,6 @@ class _ExplorationMixin:
     def _tactics_from_phase_skills(
         self, phase: PipelinePhase, tested_classes: set[str]
     ) -> list[str]:
-        """Generate tactics from skills catalog relevant to this phase."""
         tactics = []
         try:
             skills_index = self._load_skills_index()
@@ -850,7 +812,6 @@ class _ExplorationMixin:
     def _tactics_for_tech_stack(
         self, tech_names: list, tested_classes: set[str]
     ) -> list[str]:
-        """Generate tactics based on detected tech — from skills catalog, not hardcoded."""
         tactics = []
         try:
             skills_index = self._load_skills_index()
@@ -886,7 +847,6 @@ class _ExplorationMixin:
     def _tactics_for_url_patterns(
         self, urls: list, tested_classes: set[str]
     ) -> list[str]:
-        """Generate tactics based on URL patterns — derived from session data, not hardcoded."""
         tactics = []
 
         # Dynamically detect patterns from URL content
@@ -936,7 +896,6 @@ class _ExplorationMixin:
     def _novel_attack_vectors(
         self, tested_classes: set[str], iteration: int
     ) -> list[str]:
-        """Generate novel attack vectors from skills catalog methodology skills."""
         vectors = []
         try:
             skills_index = self._load_skills_index()
@@ -994,7 +953,6 @@ class _ExplorationMixin:
         return vectors
 
     def _load_skills_index(self) -> dict[str, str]:
-        """Load skills catalog index dynamically."""
         if hasattr(self, "_cached_skills_index"):
             return self._cached_skills_index
 
@@ -1020,7 +978,6 @@ class _ExplorationMixin:
 
     @staticmethod
     def _load_recon_tools_from_meta() -> set[str]:
-        """Load reconnaissance tool names from tools_meta.json data file."""
         import json
         from pathlib import Path
 
@@ -1050,7 +1007,6 @@ class _ExplorationMixin:
         recent_tools: list[str],
         same_tool_streak: int,
     ) -> str | None:
-        """Detect stuck patterns and suggest strategic corrections."""
         if not recent_tools:
             return None
 
@@ -1130,7 +1086,6 @@ class _ExplorationMixin:
         duration: float,
         phase: str,
     ) -> None:
-        """Record tool result to adaptive learning engine for reinforcement feedback."""
         try:
             cfg = get_config()
             if (
@@ -1280,7 +1235,6 @@ class _ExplorationMixin:
         result: dict,
         success: bool,
     ) -> None:
-        """Record actionable intelligence to per-target memory."""
         target = ""
         if self._session:
             target = getattr(self._session, "target", "")

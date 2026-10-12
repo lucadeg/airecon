@@ -19,7 +19,6 @@ _BARE_HOST_RE = re.compile(
 
 
 def extract_hosts(text: str) -> list[str]:
-    """Best-effort extraction of target hosts from a command/URL string."""
     if not text:
         return []
     hosts: set[str] = set()
@@ -31,8 +30,6 @@ def extract_hosts(text: str) -> list[str]:
 
 
 def host_matches(host: str, pattern: str) -> bool:
-    """Pattern match: 'example.com' matches the apex and any subdomain;
-    '*.example.com' matches subdomains only; otherwise exact match."""
     host = (host or "").strip().lower().rstrip(".")
     pattern = (pattern or "").strip().lower().rstrip(".")
     if not host or not pattern:
@@ -63,7 +60,6 @@ class ScopeGuard:
         return True, ""
 
     def check_command(self, text: str) -> tuple[bool, str, str]:
-        """Return (allowed, reason, offending_host) for a command/URL string."""
         if not self.enabled:
             return True, "", ""
         for host in extract_hosts(text):
@@ -91,7 +87,6 @@ def _audit_path() -> Path:
 
 
 def audit_log(event: dict[str, Any]) -> None:
-    """Append an event to the persistent JSONL audit log (best-effort)."""
     try:
         if not bool(getattr(get_config(), "audit_log_enabled", True)):
             return

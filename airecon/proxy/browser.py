@@ -177,7 +177,6 @@ _TRACKING_PATTERNS: tuple[str, ...] = (
 
 
 def _is_tracking_url(url: str) -> bool:
-    """Check if a URL matches known tracking/analytics patterns."""
     url_lower = url.lower()
     return any(p in url_lower for p in _TRACKING_PATTERNS)
 
@@ -487,7 +486,6 @@ class BrowserInstance:
     async def _navigate_with_fallback(
         self, page: Any, url: str, timeout_ms: int | None = None
     ) -> None:
-        """Navigate with redirect loop detection and shorter timeout."""
         if timeout_ms is None:
             timeout_ms = get_config().browser_navigation_timeout_ms
         max_attempts = 2
@@ -620,9 +618,6 @@ class BrowserInstance:
             raise last_error
 
     async def _setup_tracking_blocker(self, page: Page) -> None:
-        """Abort tracking/analytics requests at the network layer before they
-        are ever sent. This prevents redirect loops caused by third-party pixels
-        loaded inside normal pages."""
         async def _route_handler(route: Any) -> None:
             if _is_tracking_url(route.request.url):
                 logger.debug("Network route blocked (tracking): %s", route.request.url[:120])
@@ -2639,7 +2634,6 @@ class BrowserTabManager:
         sitekey: str = "",
         tab_id: str | None = None,
     ) -> dict[str, Any]:
-        """Auto-solve CAPTCHA using LLM vision or DOM bypass."""
         from .agent.captcha_solver import CaptchaSolver
 
         cfg = get_config()

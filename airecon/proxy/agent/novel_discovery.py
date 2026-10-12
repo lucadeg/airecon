@@ -184,7 +184,6 @@ _FINDING_TEXT_KEYS = (
 
 
 def _build_signal_text(findings: list[dict[str, Any]]) -> str:
-    """Flatten the salient text of all findings into one lowercase blob."""
     parts: list[str] = []
     for f in findings:
         for key in _FINDING_TEXT_KEYS:
@@ -198,12 +197,6 @@ def _select_relevant_tactics(
     findings: list[dict[str, Any]],
     limit: int = 2,
 ) -> list[str]:
-    """Pick tactics whose themes actually appear in the findings for this target.
-
-    Deterministic and evidence-driven: a tactic surfaces only when its theme
-    keywords match the observed signals, ranked by number of matches. Returns
-    [] when nothing matches, so no generic filler is injected.
-    """
     text = _build_signal_text(findings)
     if not text:
         return []
@@ -220,7 +213,6 @@ def _select_relevant_tactics(
 
 
 def _findings_signature(findings: list[dict[str, Any]]) -> str:
-    """Stable id for a set of findings (order-independent)."""
     bases = sorted(
         str(f.get("title", f.get("finding", "")))[:60] for f in findings
     )
@@ -234,12 +226,6 @@ def _build_emergent_vector(
     anomaly_categories: list[str],
     combinations: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
-    """Build a deterministic, finding-grounded emergent escalation vector.
-
-    Replaces the old random-md5 / hardcoded-description / formulaic-confidence
-    vector. Fires on evidence (≥3 findings AND ≥2 distinct signal types), not on
-    an iteration counter, and grounds its confidence in the signal count.
-    """
     distinct_signals: set[str] = set(anomaly_categories) | {
         str(c.get("name", "")) for c in combinations if c.get("name")
     }
@@ -311,7 +297,6 @@ def _format_findings_for_prompt(findings: list[dict[str, Any]]) -> str:
 
 
 def _parse_llm_vector_json(raw: str) -> dict[str, Any]:
-    """Parse the LLM response into {tactics:[...], vector:{...}}; tolerant."""
     if not raw or not raw.strip():
         return {}
     text = raw.strip()
@@ -356,14 +341,6 @@ async def generate_llm_novel_vectors(
     *,
     max_findings: int = 15,
 ) -> dict[str, Any]:
-    """Ask the configured LLM for target-specific tactics + an emergent vector.
-
-    This is the genuinely creative layer: instead of replaying a fixed list, it
-    reasons over the ACTUAL findings of this target and proposes non-obvious
-    attack paths. Results are cached by findings signature so the synchronous
-    analyze_novel_vectors() can consume them without blocking. No-ops cleanly
-    when the LLM backend is not configured.
-    """
     if not findings:
         return {}
     try:

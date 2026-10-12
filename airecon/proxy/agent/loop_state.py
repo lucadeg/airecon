@@ -62,9 +62,6 @@ class _StateMixin:
             self._accumulate_recent_turns()
 
     def _accumulate_recent_turns(self, cap: int = 400) -> None:
-        """Append NEW raw user/assistant/tool turns to the session's persistent
-        recent_turns buffer so resume can replay real history even after the live
-        conversation has been compacted into summaries."""
         try:
             existing = list(getattr(self._session, "recent_turns", []) or [])
             seen = {self._turn_signature(m) for m in existing}

@@ -34,11 +34,6 @@ def _safe_non_negative_int(value: Any) -> int:
 
 
 def _load_recon_bins(category: str) -> frozenset[str]:
-    """Load recon tool names for a category from tools_meta.json.
-
-    Source: categories.reconnaissance.<category> in tools_meta.json.
-    Returns empty frozenset on failure (caller should handle gracefully).
-    """
     try:
         path = Path(__file__).resolve().parent.parent / "data" / "tools_meta.json"
         data = json.loads(path.read_text(encoding="utf-8"))

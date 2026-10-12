@@ -177,7 +177,6 @@ class FilePreviewScreen(ModalScreen):
         return True, None
 
     def action_delete(self) -> None:
-        """Delete the previewed file after confirmation."""
         p = Path(self.file_path)
         if not p.exists():
             self.notify("File no longer exists.", severity="error")
@@ -198,7 +197,6 @@ class FilePreviewScreen(ModalScreen):
         self.app.push_screen(ConfirmDelete(self.file_path), on_delete_result)
 
     def _perform_delete(self) -> None:
-        """Actually delete the file."""
         try:
             p = Path(self.file_path)
             if p.exists():

@@ -75,8 +75,6 @@ except Exception as e:
 
 @dataclass
 class TargetScore:
-    """Scored target with reasoning."""
-
     target: str
     score: float
     category: str = ""
@@ -88,8 +86,6 @@ class TargetScore:
 
 
 class TargetPrioritizer:
-    """Scores and prioritizes targets for maximum bug bounty impact."""
-
     def __init__(self):
         self._compiled_url_patterns = _URL_PATTERNS
         self._compiled_subdomain_patterns = _SUBDOMAIN_PATTERNS
@@ -97,7 +93,6 @@ class TargetPrioritizer:
     def score_url(
         self, url: str, tech_stack: list[str] | None = None, http_status: int = 0
     ) -> TargetScore:
-        """Score a URL by its attack value."""
         score = 0.0
         reasons: list[str] = []
         attack_vectors: list[str] = []
@@ -190,7 +185,6 @@ class TargetPrioritizer:
     def score_subdomain(
         self, subdomain: str, tech_stack: list[str] | None = None
     ) -> TargetScore:
-        """Score a subdomain by its attack value."""
         score = 0.0
         reasons: list[str] = []
         attack_vectors: list[str] = []
@@ -243,7 +237,6 @@ class TargetPrioritizer:
         status_map: dict[str, int] | None = None,
         top_n: int = 20,
     ) -> list[TargetScore]:
-        """Score and sort URLs, filtering out tracking pixels."""
         scored = []
         for url in urls:
             tech = (tech_map or {}).get(urlparse(url).netloc, [])
@@ -268,7 +261,6 @@ class TargetPrioritizer:
         tech_map: dict[str, list[str]] | None = None,
         top_n: int = 15,
     ) -> list[TargetScore]:
-        """Score and sort subdomains by attack value."""
         scored = []
         for sub in subdomains:
             tech = (tech_map or {}).get(sub, [])
@@ -287,7 +279,6 @@ class TargetPrioritizer:
         return result
 
     def generate_attack_plan(self, targets: list[TargetScore]) -> str:
-        """Generate a prioritized attack plan from scored targets."""
         if not targets:
             return "No high-value targets identified."
 

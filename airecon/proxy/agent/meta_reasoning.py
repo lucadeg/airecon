@@ -21,8 +21,6 @@ _DECISION_TYPES = {
 
 
 class MetaReasoningEngine:
-    """Self-reflection and self-consistency engine with lateral thinking."""
-
     def __init__(
         self,
         reflection_interval: int = 15,

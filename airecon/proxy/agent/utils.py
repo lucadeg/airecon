@@ -1,8 +1,3 @@
-"""Shared utility functions for Airecon agent modules.
-
-Eliminates duplication patterns found across executor and loop modules.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +18,6 @@ MAX_RAW_FALLBACK = 3000
 
 
 def _safe_non_negative_int(value: Any, default: int = 0) -> int:
-    """Parse a non-negative int, returning default on invalid input."""
     try:
         v = int(value)
         return v if v >= 0 else default
@@ -32,7 +26,6 @@ def _safe_non_negative_int(value: Any, default: int = 0) -> int:
 
 
 def as_bool(value: Any, default: bool = True) -> bool:
-    """Parse a truthy value from various types (moved from executors_fuzzing.py)."""
     if value is None:
         return default
     if isinstance(value, bool):
@@ -45,7 +38,6 @@ def as_bool(value: Any, default: bool = True) -> bool:
 
 
 def as_str_list(value: Any) -> list[str] | None:
-    """Clean a list of values to a list of stripped strings."""
     if not isinstance(value, list):
         return None
     cleaned = [str(v).strip() for v in value if str(v).strip()]
@@ -53,7 +45,6 @@ def as_str_list(value: Any) -> list[str] | None:
 
 
 def format_finding(r: Any) -> str:
-    """Format a finding object into the standard string representation."""
     return FINDING_FORMAT.format(
         p=r.parameter, v=r.vuln_type, s=r.severity,
         c=r.confidence, e=r.evidence,
@@ -61,7 +52,6 @@ def format_finding(r: Any) -> str:
 
 
 def safe_save_tool_output(self, tool_name: str, arguments: dict[str, Any], res_dict: dict[str, Any]) -> None:
-    """Wrap _save_tool_output in try/except — previously repeated 10+ times."""
     try:
         self._save_tool_output(tool_name, arguments, res_dict)
     except Exception as _e:
@@ -76,10 +66,6 @@ def record_tool_completion(
     duration: float,
     success: bool,
 ) -> tuple[bool, float, dict[str, Any], str | None]:
-    """Common boilerplate: append history, increment counter.
-
-    Replaces the 7-8 line pattern duplicated 40+ times across all executor mixins.
-    """
     self.state.tool_history.append(
         ToolExecution(
             tool_name=tool_name,
@@ -102,17 +88,12 @@ def tool_finish(
     success: bool,
     output_file: str | None = None,
 ) -> tuple[bool, float, dict[str, Any], str | None]:
-    """Full execution finisher: save output + record completion.
-
-    Single-call replacement for the entire tool-execution epilogue.
-    """
     duration = time.time() - start_time
     safe_save_tool_output(self, tool_name, arguments, result)
     return record_tool_completion(self, tool_name, arguments, result, duration, success)
 
 
 def deduplicate(items: list[str]) -> list[str]:
-    """Stable deduplication — replaces the `seen: set = set()` idiom repeated 4x in output_parser.py."""
     seen: set[str] = set()
     return [item for item in items if item not in seen and not seen.add(item)]
 
@@ -122,7 +103,6 @@ def empty_parsed_output(
     summary: str = "",
     raw_truncated: str = "",
 ) -> ParsedOutput:
-    """Factory for empty tool output — replaces ParsedOutput(…) pattern repeated 8x in output_parser.py."""
     return ParsedOutput(
         tool=tool_name,
         summary=summary or f"{tool_name} complete -- 0 results",
@@ -132,19 +112,16 @@ def empty_parsed_output(
 
 
 async def async_sleep_backoff(attempt: int, base: float = 2.0, max_wait: float = 120.0) -> float:
-    """Exponential backoff sleep — replaces 2**(attempt+1) with asyncio.sleep pattern repeated 5+ times in llm.py."""
     wait = min(base ** (attempt + 1), max_wait)
     await asyncio.sleep(wait)
     return wait
 
 
 def sync_backoff(attempt: int, base: float = 2.0, max_wait: float = 120.0) -> float:
-    """Synchronous exponential backoff calculation."""
     return min(base ** (attempt + 1), max_wait)
 
 
 def cfg_typed(cfg: Any, key: str, default: Any, converter: type) -> Any:
-    """Generic config getter with type coercion — replaces _cfg_bool/_cfg_int/_cfg_float trio."""
     try:
         val = getattr(cfg, key, default)
         if isinstance(val, converter):
@@ -157,7 +134,6 @@ def cfg_typed(cfg: Any, key: str, default: Any, converter: type) -> Any:
 
 
 def is_host_in_scope(target_url: str, session_target: str) -> bool:
-    """Check if target_url is a subdomain of session_target (from executors_fuzzing.py)."""
     if not session_target or not target_url:
         return True
     try:
@@ -177,7 +153,6 @@ def is_host_in_scope(target_url: str, session_target: str) -> bool:
 
 
 def extract_domain_from_url(url: str) -> str:
-    """Extract the domain from a URL — extracted from executors_browser.py."""
     try:
         from urllib.parse import urlparse
         return urlparse(url).hostname or ""

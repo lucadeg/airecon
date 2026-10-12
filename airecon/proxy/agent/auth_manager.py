@@ -15,7 +15,6 @@ _AUTH_PATTERNS_FILE = Path(__file__).parent.parent / "data" / "verification_patt
 
 
 def _load_auth_patterns():
-    """Load compiled auth patterns from verification_patterns.json."""
     try:
         if _AUTH_PATTERNS_FILE.exists():
             data = json.loads(_AUTH_PATTERNS_FILE.read_text(encoding="utf-8"))

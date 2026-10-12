@@ -102,8 +102,6 @@ _CLEAN_PAYLOADS: list[str] = [
 
 @dataclass
 class VerificationResult:
-    """Result of a verification attempt."""
-
     finding_id: str
     vuln_type: str
     parameter: str
@@ -126,12 +124,9 @@ class VerificationResult:
 
 
 class FalsePositiveDetector:
-    """Detects conditions that commonly cause false positives."""
-
     def detect_dynamic_content(
         self, baseline_body: str, fuzz_body: str
     ) -> tuple[bool, list[str]]:
-        """Check if response differences are due to dynamic content rather than actual vulnerability exploitation."""
         reasons: list[str] = []
 
         baseline_markers = set()
@@ -159,7 +154,6 @@ class FalsePositiveDetector:
     def detect_waf_cdn(
         self, status_code: int, headers: dict, body: str
     ) -> tuple[bool, str]:
-        """Detect WAF/CDN responses that may cause false positives or block exploitation."""
         header_str = "\n".join(f"{k}: {v}" for k, v in headers.items())
         combined = header_str + "\n" + body[:5000]
 
@@ -176,7 +170,6 @@ class FalsePositiveDetector:
         return False, ""
 
     def detect_honeypot(self, body: str, status_code: int) -> tuple[bool, list[str]]:
-        """Detect honeypot responses designed to trap automated scanners."""
         reasons: list[str] = []
 
         for pattern in _HONEYPOT_INDICATORS:
@@ -191,7 +184,6 @@ class FalsePositiveDetector:
     def detect_reflection_only(
         self, payload: str, baseline_body: str, fuzz_body: str
     ) -> tuple[bool, str]:
-        """Check if payload is merely reflected without execution, indicating no actual vulnerability."""
         if payload not in fuzz_body:
             return False, ""
 
@@ -219,11 +211,6 @@ class FalsePositiveDetector:
     def detect_header_only_reflection(
         self, status_code: int, headers: dict, body: str, payload: str
     ) -> tuple[bool, str]:
-        """Detect vulnerabilities reported solely from HTTP header reflection.
-
-        Catches false positives where 'reflected XSS' is claimed based on
-        Location/redirect headers with no HTML body — classic feedly.com scenario.
-        """
         if not body or len(body.strip()) == 0:
             if 300 <= status_code < 400:
                 location = headers.get("location", "")
@@ -262,8 +249,6 @@ class FalsePositiveDetector:
 
 
 class ReplayVerifier:
-    """Re-tests findings with independent payloads to confirm vulnerabilities."""
-
     def __init__(self, timeout: int = 15, max_replays: int = 3):
         self.timeout = timeout
         self.max_replays = max_replays
@@ -278,7 +263,6 @@ class ReplayVerifier:
         original_confidence: float,
         headers: dict | None = None,
     ) -> VerificationResult:
-        """Verify a finding through replay testing with independent payloads."""
         start_time = time.monotonic()
         result = VerificationResult(
             finding_id=self._make_id(target_url, param, vuln_type),
@@ -360,7 +344,6 @@ class ReplayVerifier:
     def _check_confirmation(
         self, resp: httpx.Response, payload: str, vuln_type: str
     ) -> bool:
-        """Check if replay payload confirms the vulnerability."""
         body = resp.text
         status = resp.status_code
 
@@ -431,11 +414,6 @@ class ReplayVerifier:
 
     @staticmethod
     def _payload_redirect_host(payload: str) -> str:
-        """Extract the destination host from an open-redirect payload.
-
-        Handles forms like ``https://evil.tld/x``, ``//evil.tld``,
-        ``https:evil.tld`` → ``evil.tld``.
-        """
         p = (payload or "").strip()
         p = re.sub(r"^https?:", "", p, flags=re.IGNORECASE)
         p = p.lstrip("/\\")
@@ -449,8 +427,6 @@ class ReplayVerifier:
 
 
 class CrossToolValidator:
-    """Requires 2+ independent signals from different tools/sources."""
-
     def validate(
         self,
         vuln_type: str,
@@ -458,14 +434,6 @@ class CrossToolValidator:
         target: str,
         signals: list[dict[str, Any]],
     ) -> tuple[bool, float, list[str]]:
-        """Validate finding requires multiple independent signals.
-
-        Args:
-            signals: List of dicts with keys: source, confidence, evidence_type
-
-        Returns:
-            (is_valid, adjusted_confidence, reasons)
-        """
         if not signals:
             return False, 0.0, ["No independent signals"]
 
@@ -502,8 +470,6 @@ class CrossToolValidator:
 
 
 class NegativeTester:
-    """Tests against known-clean patterns to calibrate false positive rates."""
-
     def __init__(self, timeout: int = 10):
         self.timeout = timeout
 
@@ -513,11 +479,6 @@ class NegativeTester:
         param: str,
         headers: dict | None = None,
     ) -> tuple[bool, list[str]]:
-        """Test that clean payloads do NOT trigger vulnerability signals.
-
-        Returns:
-            (passed, reasons)
-        """
         reasons: list[str] = []
         passed = True
 
@@ -550,7 +511,6 @@ class NegativeTester:
         return passed, reasons
 
     def _check_fp_signals(self, body: str, status: int) -> list[str]:
-        """Check for false positive signals in response."""
         signals: list[str] = []
 
         if any(err.lower() in body for err in _SQL_ERROR_PATTERNS[:4]):
@@ -569,8 +529,6 @@ class NegativeTester:
 
 
 class ConfidenceEscalator:
-    """Tiered verification system with escalating confidence levels."""
-
     TIER_UNVERIFIED = 0
     TIER_REPLAY = 1
     TIER_CROSS_TOOL = 2
@@ -592,11 +550,6 @@ class ConfidenceEscalator:
         fp_detected: bool,
         dynamic_content: bool,
     ) -> tuple[int, float, str]:
-        """Calculate final verification tier and confidence.
-
-        Returns:
-            (tier, final_confidence, status_label)
-        """
         confidence = original_confidence
         tier = self.TIER_UNVERIFIED
         reasons: list[str] = []
@@ -649,8 +602,6 @@ class ConfidenceEscalator:
 
 
 class VerificationEngine:
-    """Main verification engine orchestrating all stages."""
-
     def __init__(
         self,
         timeout: int = 15,
@@ -685,15 +636,6 @@ class VerificationEngine:
         additional_signals: list[dict] | None = None,
         http_headers: dict | None = None,
     ) -> VerificationResult:
-        """Run full verification pipeline on a finding.
-
-        Pipeline:
-        1. FP Detection (dynamic content, WAF, honeypot, reflection-only)
-        2. Negative Testing (clean payloads)
-        3. Replay Verification (independent payloads)
-        4. Cross-Tool Validation (multiple signals)
-        5. Confidence Escalation (final tier calculation)
-        """
         start_time = time.monotonic()
         result = VerificationResult(
             finding_id=self.replay_verifier._make_id(target_url, param, vuln_type),

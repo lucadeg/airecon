@@ -1,18 +1,3 @@
-"""Dynamic correlation engine — discovers attack chains from actual findings,
-not from predefined heuristic pairs.
-
-Old approach (removed): _CHAIN_HEURISTICS list with hardcoded string conditions
-like "has_credential_exposure AND has_auth_endpoint". This failed because it
-required specific vuln_class names to match verbatim.
-
-New approach: builds a relationship graph from findings by analyzing:
-- Shared hosts/endpoints (spatial proximity)
-- Shared parameters (input surface overlap)
-- Data flow relationships (output of A → input of B)
-- Trust boundary crossings (auth state changes, privilege levels)
-- Temporal sequences (exploitation order matters)
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -40,7 +25,6 @@ REL_AMPLIFICATION = "amplification"  # A + B together > sum of parts
 
 @dataclass
 class Finding:
-    """Represents a single vulnerability/observation."""
     finding_id: str
     vuln_class: str
     severity: int
@@ -61,7 +45,6 @@ class Finding:
 
 @dataclass
 class AttackChain:
-    """A correlated chain of findings that together form a higher-impact attack."""
     chain_id: str
     name: str
     description: str
@@ -73,14 +56,6 @@ class AttackChain:
 
 
 class CorrelationEngine:
-    """Discovers attack chains via graph analysis of findings.
-    
-    Unlike hardcoded heuristic matching, this:
-    1. Builds a graph where edges represent real relationships
-    2. Runs path-finding to discover chains of any length (not just pairs)
-    3. Scores chains by combined impact, not by predefined rule scores
-    """
-
     def __init__(self):
         self._findings: dict[str, Finding] = {}
         self._chains: list[AttackChain] = []
@@ -108,7 +83,6 @@ class CorrelationEngine:
         evidence: str = "",
         tags: list[str] | None = None,
     ) -> str:
-        """Add a vulnerability finding to the correlation engine."""
         finding_id = hashlib.md5(  # non-cryptographic identifier
             f"{vuln_class}:{endpoint}:{parameter}:{description[:50]}".encode(),
             usedforsecurity=False,
@@ -153,7 +127,6 @@ class CorrelationEngine:
         return finding_id
 
     def correlate_findings(self) -> list[AttackChain]:
-        """Discover attack chains via graph-based relationship analysis."""
         if len(self._findings) < 2:
             return []
 
@@ -171,10 +144,6 @@ class CorrelationEngine:
         return self._chains
 
     def _build_relationship_graph(self) -> list[tuple[str, str, str]]:
-        """Build graph edges between findings based on actual relationships.
-        
-        Returns list of (finding_id_a, finding_id_b, relationship_type).
-        """
         edges: list[tuple[str, str, str]] = []
         findings_list = list(self._findings.values())
 
@@ -187,7 +156,6 @@ class CorrelationEngine:
         return edges
 
     def _find_relations(self, a: Finding, b: Finding) -> list[str]:
-        """Determine how two findings relate — returns list of relation types."""
         relations: list[str] = []
 
         # 1. Spatial: same host or endpoint
@@ -230,10 +198,6 @@ class CorrelationEngine:
 
     @staticmethod
     def _estimate_combined_severity(findings: list[Finding]) -> int:
-        """Estimate combined severity when findings are chained.
-        
-        This uses the STRUCTURE of the attack, not predefined rules.
-        """
         max_sev = max(f.severity for f in findings)
 
         # Multiple independent attack vectors on same surface = higher risk
@@ -268,7 +232,6 @@ class CorrelationEngine:
         edges: list[tuple[str, str, str]],
         max_length: int = 5,
     ) -> list[AttackChain]:
-        """Find all paths of length 2 through max_length in the relationship graph."""
         # Build adjacency list
         adjacency: dict[str, list[tuple[str, str]]] = defaultdict(list)
         for a, b, rel in edges:
@@ -304,7 +267,6 @@ class CorrelationEngine:
         path: list[str],
         relations: list[str],
     ) -> AttackChain | None:
-        """Build an AttackChain from a list of finding IDs and their relations."""
         if len(path) < 2:
             return None
 
@@ -367,7 +329,6 @@ class CorrelationEngine:
         )
 
     def _deduplicate_chains(self, chains: list[AttackChain]) -> list[AttackChain]:
-        """Remove duplicate chains with similar finding sets."""
         unique: list[AttackChain] = []
         seen_sets: list[frozenset] = []
 

@@ -424,8 +424,6 @@ class CausalState:
 
 @dataclass
 class AntiLoopState:
-    """Tracks tool/command diversity to prevent LLM from getting stuck in loops."""
-
     no_tool_iterations: int = 0
     stagnation_iterations: int = 0
     consecutive_same_approach: int = 0
@@ -465,8 +463,6 @@ class AntiLoopState:
 
 @dataclass
 class SessionLifecycleState:
-    """Session timing, token tracking, and save intervals."""
-
     last_session_save_iteration: int = 0
     session_save_interval: int = 10
     last_conversation_save_iteration: int = 0
@@ -484,8 +480,6 @@ class SessionLifecycleState:
 
 @dataclass
 class RecoveryState:
-    """Tracks recovery attempts and context management state."""
-
     recovery_force_tool_calls: int = 0
     adaptive_num_ctx: int = 0
     adaptive_num_predict_cap: int = 0
@@ -504,8 +498,6 @@ class RecoveryState:
 
 @dataclass
 class ScopeTrackingState:
-    """Tracks visited URLs, scope locks, and browser visit limits."""
-
     visited_browser_urls: set[str] = field(default_factory=set)
     max_browser_visits_per_domain: int = 5
     scope_lock_active: bool = False
@@ -515,8 +507,6 @@ class ScopeTrackingState:
 
 @dataclass
 class UserInputState:
-    """Interactive user input handling state."""
-
     user_input_event: asyncio.Event | None = None
     user_input_value: str = ""
     user_input_cancelled: bool = False
@@ -2026,15 +2016,6 @@ class AgentState:
         num_predict: int | None = None,
         phase: str | None = None,
     ) -> None:
-        """Improved compression for pentesting/bugbounty/CTF that preserves critical context.
-
-        Key improvements:
-        1. Phase-aware compression - different rules for RECON vs EXPLOIT
-        2. Evidence preservation - never lose high-severity findings
-        3. Hypothesis protection - keeps attack hypotheses intact
-        4. Injection point tracking - preserves discovered injection points
-        5. Tool chain preservation - remembers successful tool sequences
-        """
         limits = _get_context_limits()
         if keep_recent is None:
             keep_recent = 30

@@ -355,16 +355,14 @@ def _normalize_url(url: str) -> str:
 
 
 def _target_apex(target: str) -> str:
-    """Reduce a target ('https://*.example.com/x', 'example.com:443') to its
-    bare apex host ('example.com'). Empty when no usable host."""
     t = (target or "").strip().lower()
     if not t:
         return ""
     if "://" in t:
         try:
             t = urlparse(t).hostname or t
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("apex host parse failed for %r: %s", t, e)
     else:
         t = t.split("/", 1)[0]
     t = t.lstrip("*").lstrip(".").split(":", 1)[0].rstrip(".")
@@ -372,26 +370,18 @@ def _target_apex(target: str) -> str:
 
 
 def _host_of(value: str) -> str:
-    """Best-effort host extraction from a URL or host[:port] token."""
     v = (value or "").strip().lower()
     if not v:
         return ""
     try:
         host = urlparse(v if "://" in v else "http://" + v).hostname or ""
-    except Exception:
+    except Exception as e:
+        logger.debug("host parse failed for %r: %s", v, e)
         host = ""
     return host.split(":", 1)[0].rstrip(".")
 
 
 def url_in_target_scope(value: str, target: str, allow: list[str] | None = None) -> bool:
-    """True if a discovered URL/host belongs to the engagement scope.
-
-    Anchors on the target apex (apex + any subdomain) so third-party noise
-    (google.com, login.microsoftonline.com, w3.org, example.org, CDNs) never
-    enters the testable attack surface. An explicit scope allowlist (e.g. a
-    target-owned cloud asset) is also honored. When no target is set, nothing is
-    filtered (returns True) so non-scoped/CTF runs are unaffected.
-    """
     apex = _target_apex(target)
     if not apex:
         return True

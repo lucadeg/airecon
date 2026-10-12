@@ -33,12 +33,6 @@ _REPORT_ESCAPE_TABLE = str.maketrans({
 
 
 def _sanitize_evidence_text(value: str) -> str:
-    """Strip potential prompt-injection markers from external evidence.
-
-    We don't strip everything — LLM needs the raw data for reports — but we
-    neutralize SYSTEM: / INJECT: style markers by bracketing the evidence
-    block so the model treats it as quoted data, not instructions.
-    """
     return value.strip()
 
 
@@ -199,13 +193,6 @@ class _CycleLlmMixin:
         return result
 
     def _check_phase_constraint(self, tool_name: str) -> tuple[str, str]:
-        """Return (mode, advisory_message) for a tool call.
-
-        Mode is always 'advisory' — phase guidance never blocks execution.
-        The advisory message is empty when the tool is phase-appropriate or
-        when accumulated evidence justifies a cross-phase pivot (≥3 evidence
-        items in the log). Callers may log the message but must not abort.
-        """
         from .tool_scorer import _PHASE_BLOCKED_TOOLS
 
         if not self.pipeline:
@@ -395,11 +382,6 @@ class _CycleLlmMixin:
         self._inject_meta_reflection_context(current_phase)
 
     def _inject_target_memory(self) -> None:
-        """Inject per-target intelligence into the conversation.
-
-        If the current target has been scanned before, inject remembered
-        endpoints, vulnerabilities, WAF bypasses, and sensitive params.
-        """
         target = ""
         if self._session:
             target = getattr(self._session, "target", "")
@@ -430,12 +412,6 @@ class _CycleLlmMixin:
         )
 
     def _inject_learned_insights(self, current_phase: str) -> None:
-        """Inject learned insights from past sessions into the conversation.
-
-        This is how airecon 'learns' — persistent knowledge from past
-        observations gets surfaced as context so the agent doesn't start from
-        scratch every session.
-        """
         engine = self._ensure_adaptive_learning_engine()
         techs = []
         if self._session:
@@ -534,12 +510,6 @@ class _CycleLlmMixin:
         )
 
     def _inject_meta_reflection_context(self, current_phase: str) -> None:
-        """Periodically inject meta-reasoning insights into conversation.
-
-        Every 15 iterations, the engine self-reflects on its recent actions
-        and stores hints like 'avoid repeating nmap — already ran 3 times'.
-        These hints are injected so the agent learns from its own behavior.
-        """
         if not hasattr(self, "_meta_reasoning_engine"):
             from .meta_reasoning import MetaReasoningEngine
             self._meta_reasoning_engine = MetaReasoningEngine()
@@ -595,6 +565,20 @@ class _CycleLlmMixin:
         thinking_acc: str,
         tool_calls_acc: list[dict[str, Any]],
     ) -> tuple[str, str, list[dict[str, Any]], bool]:
+            # Extract text-mode tool calls before the nudges below (all gated on
+            # `not tool_calls_acc`) so a valid <tool_call> is never missed.
+            if not tool_calls_acc:
+                _registered = {
+                    t["function"]["name"] for t in (self._tools_llm or [])
+                }
+                _search_text = content_acc + "\n" + thinking_acc
+                extracted = self._extract_tool_calls_from_text(
+                    _search_text, _registered
+                )
+                if extracted:
+                    tool_calls_acc.extend(extracted)
+                    content_acc = self._TOOL_CALL_RE.sub("", content_acc).strip()
+
             combined_response = content_acc + " " + thinking_acc
 
             hallucination_signals = [
@@ -699,19 +683,6 @@ class _CycleLlmMixin:
                             "Do NOT fabricate results."
                         ),
                     })
-
-            if not tool_calls_acc:
-                _registered = {
-                    t["function"]["name"] for t in (self._tools_llm or [])
-                }
-                _search_text = content_acc + "\n" + thinking_acc
-                extracted = self._extract_tool_calls_from_text(
-                    _search_text, _registered
-                )
-                if extracted:
-                    tool_calls_acc.extend(extracted)
-                    content_acc = self._TOOL_CALL_RE.sub(
-                        "", content_acc).strip()
 
             _text_only_threshold = 1 if _in_active_session else 2
             if not tool_calls_acc and content_acc.strip() and self._no_tool_iterations >= _text_only_threshold:
@@ -882,7 +853,6 @@ class _CycleLlmMixin:
     # ── Self-Consistency Check ───────────────────────────────────────────
 
     def _is_text_only_response(self, text: str) -> bool:
-        """Quick check if text is just planning/meta text."""
         return any(w in ("executing:", "[system:") for w in text.lower().split()[:2])
 
     def _check_critical_decision_consistency(
@@ -890,12 +860,6 @@ class _CycleLlmMixin:
         text: str,
         tool_calls: list[dict[str, Any]],
     ) -> None:
-        """Run self-consistency check when LLM makes a critical claim.
-
-        When the agent claims to have found a vulnerability or makes a
-        confident assertion about security, verify by running the same
-        question through the model again (self-consistency).
-        """
         # Only check occasionally (every 8 iterations)
         if not hasattr(self, "_consistency_counter"):
             self._consistency_counter = 0

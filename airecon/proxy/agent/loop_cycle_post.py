@@ -24,7 +24,6 @@ logger = logging.getLogger("airecon.agent")
 # But their PARENT DIRECTORY might be worth fuzzing!
 # Loaded from file_extensions.json (was hardcoded — now single source of truth)
 def _load_pure_static_exts() -> frozenset[str]:
-    """Load static asset extensions from file_extensions.json."""
     try:
         from airecon.proxy.data_loader import load_file_extensions
         data = load_file_extensions()
@@ -114,12 +113,6 @@ class _CyclePostMixin:
         result: dict[str, Any],
         success: bool,
     ) -> str:
-        """Parse HTTP output from a tool call and return a structured context card.
-
-        On first call to an endpoint: saves the response as baseline.
-        On subsequent calls: computes a behavioral diff and shows it.
-        The LLM receives this and decides what changes mean — no verdict from Python.
-        """
         if not success:
             return ""
         _HTTP_TOOLS = {"execute", "http_observe", "browser_action", "quick_fuzz", "advanced_fuzz"}
@@ -240,11 +233,6 @@ class _CyclePostMixin:
         arguments: dict[str, Any],
         result_text: str,
     ) -> str:
-        """Link a tool result to pending hypotheses so the LLM can update its reasoning.
-
-        Python finds the overlap between result and hypothesis (by endpoint or keywords).
-        The LLM decides whether the hypothesis is confirmed — no verdict here.
-        """
         pending = self.state.get_pending_hypotheses(max_items=6)
         if not pending:
             return ""
@@ -357,6 +345,13 @@ class _CyclePostMixin:
         "[SYSTEM: RESUMED SESSION",
         "[SYSTEM: CRITICAL FINDINGS",
         "[SYSTEM: HIGH-VALUE TARGETS",
+        # Corrective nudges re-injected on stalls — keep only the latest of each.
+        "[SYSTEM: HALLUCINATION WARNING",
+        "[SYSTEM: MANDATORY TOOL CALL",
+        "[SYSTEM: TOOL CALL REQUIRED",
+        "[SYSTEM: RECOVERY",
+        "[SYSTEM: RETRY REQUIRED",
+        "[SYSTEM: WATCHDOG AUTO-EXECUTION",
         "META-REASONING",
         "<system_tool_intelligence",
         "<target_intelligence",
@@ -365,19 +360,6 @@ class _CyclePostMixin:
     )
 
     def _prune_stale_system_context(self) -> None:
-        """Collapse re-injected ephemeral system messages to control context.
-
-        Runs EVERY iteration because the heavy families (HANDOFF SUMMARY,
-        VISIONARY ANALYSIS, EXPERT/ANALYSIS guidance, RECON VALIDATION,
-        target/tool intelligence, ...) are re-added fresh each turn — left
-        unchecked they accumulated into ~38k tokens of duplicated boilerplate
-        that crowded out the agent's actual recon data. Policy:
-          * singleton families  → keep only the latest 1 (older copies are stale)
-          * `[SKILL LOADED: X]`  → keep latest 1 PER DISTINCT skill (different
-            skills are not duplicates)
-          * snapshot families    → keep the latest 2
-        Core/registration system messages (no matched prefix) are never pruned.
-        """
         before = len(self.state.conversation)
         singleton_seen: set[str] = set()
         skill_seen: set[str] = set()
@@ -432,12 +414,6 @@ class _CyclePostMixin:
     # ── Scope advisory drainer ───────────────────────────────────────────────
 
     def _drain_scope_advisories(self) -> str:
-        """Consume pending soft scope advisories queued by the validator.
-
-        The validator records out-of-declared-scope URLs it let through when
-        scope_lock is not strict. This surfaces them to the LLM so it can
-        justify or abandon the pivot on its own — Python never decides.
-        """
         advisories = getattr(self, "_pending_scope_advisories", None) or []
         if not advisories:
             return ""
@@ -476,12 +452,6 @@ class _CyclePostMixin:
         arguments: dict[str, Any],
         result: dict[str, Any],
     ) -> str:
-        """Surface session state + rate-limit signals detected by the HTTP layer.
-
-        Python reports observed facts (cookies attached, cookies harvested,
-        rate-limit response received). The LLM decides backoff timing,
-        re-auth, or pivot. No policy enforcement here.
-        """
         if not isinstance(result, dict):
             return ""
 
@@ -565,11 +535,6 @@ class _CyclePostMixin:
         meaningful_delta: int,
         new_evidence: list[dict[str, Any]],
     ) -> str:
-        """Inject a general escalation directive when new meaningful evidence appears.
-
-        Deliberately does NOT name a specific vuln type — the LLM reasons about
-        what the evidence means. This keeps the detection open to novel findings.
-        """
         # Only fire when at least 2 meaningful findings arrive at once,
         # or every 5th meaningful find (to avoid injecting on every minor signal).
         if meaningful_delta <= 0 or not new_evidence:

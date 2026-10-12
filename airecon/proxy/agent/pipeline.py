@@ -262,7 +262,6 @@ def _load_phase_transition_criteria(phase: PipelinePhase) -> list[str]:
 
 # Phase confidence thresholds loaded from config.py (moved from tools_meta.json)
 def _load_phase_confidence_thresholds() -> dict[PipelinePhase, float]:
-    """Load phase confidence thresholds from config.py."""
     cfg = _get_config()
     return {
         PipelinePhase.RECON: getattr(cfg, "pipeline_confidence_threshold_recon", 0.60),
@@ -333,7 +332,6 @@ _PHASE_ORDER = _normalize_phase_sequence(_TOOLS_META.get("phase_sequence"))
 
 # Phase tool budgets loaded from config.py (moved from tools_meta.json)
 def _load_phase_tool_budgets() -> dict[str, dict[str, int]]:
-    """Load phase tool budgets from config.py."""
     cfg = _get_config()
     return {
         "RECON": {
@@ -432,15 +430,6 @@ def _generate_dynamic_hints(
     iteration: int,
     consecutive_failures: int = 0,
 ) -> list[str]:
-    """Generate exploration hints dynamically from actual target context.
-
-    Unlike the old approach (random.sample from a fixed list of 18 hints),
-    this picks hints BASED ON:
-    - What tech stack the target actually has
-    - What has already been tested (avoid repeating)
-    - What attack surfaces exist but haven't been exercised
-    - Rotation based on iteration to ensure variety
-    """
     hints: list[str] = []
     phase_value = phase.value
 
@@ -630,12 +619,6 @@ def _generate_dynamic_hints(
 def _generate_counterfactual(
     phase: str, session: Any, technologies: dict
 ) -> str | None:
-    """Generate a counterfactual prompt that forces assumption-challenging.
-
-    This breaks pattern-matching by asking the LLM to consider the OPPOSITE
-    of what it believes — catching blind spots in recon/analysis.
-    Each session generates different counterfactuals based on actual evidence.
-    """
     vulns = getattr(session, "vulnerabilities", []) or []
     tech_names = list(technologies.keys()) if technologies else []
 
@@ -760,10 +743,6 @@ class PipelineEngine:
             return PipelinePhase.RECON
 
     def get_tool_budget(self, phase: str, tool_name: str) -> int | None:
-        """Get the tool budget for a specific tool in a phase.
-
-        Returns None if the tool is not budget-constrained.
-        """
         phase_budgets = _PHASE_TOOL_BUDGETS.get(phase, {})
         return phase_budgets.get(tool_name)
 
@@ -782,14 +761,6 @@ class PipelineEngine:
             logger.info("Pipeline CTF mode enabled — skipped to EXPLOIT phase")
 
     def check_tool_phase_fit(self, tool_name: str) -> str | None:
-        """Check if a tool is appropriate for the current phase.
-
-        Derives tool→phase mapping dynamically from tools_meta.json
-        phase_category_map/phase_extras/report_tools metadata.
-
-        Returns a warning string if the tool is unusual for this phase,
-        or None if the tool is appropriate.
-        """
         current = self.get_current_phase()
         expected_phases = sorted(_TOOL_PHASE_EXPECTATIONS.get(tool_name, set()))
         if not expected_phases:
@@ -804,7 +775,6 @@ class PipelineEngine:
         )
 
     def should_transition(self) -> bool:
-        """Determine if phase transition is ready. Uses SOFT gates, not hard blocks."""
         if self._ctf_mode:
             logger.debug("[Pipeline] CTF mode — blocking transition")
             return False
@@ -950,7 +920,6 @@ class PipelineEngine:
         return decision
 
     def _calculate_dynamic_min_iterations(self, phase: PipelinePhase) -> int:
-        """Calculate minimum iterations based on evidence collected, not just time."""
         if phase == PipelinePhase.RECON:
             # If we have some data, min 10 iter (cooldown); if nothing, min 20 iter
             has_data = bool(
@@ -1468,12 +1437,10 @@ class PipelineEngine:
         return next_phase
 
     def get_phase_prompt(self) -> str:
-        """Get the prompt for the current phase."""
         current = self.get_current_phase()
         return self._get_phase_prompt_text(current)
 
     def get_transition_prompt(self, target_phase: PipelinePhase) -> str:
-        """Get a transition prompt for moving to the target phase."""
         lines = [
             f"[PHASE TRANSITION → {target_phase.value}]",
             "",
@@ -1569,10 +1536,6 @@ class PipelineEngine:
         )
 
     def _dynamic_skill_hint(self, phase: PipelinePhase) -> str | None:
-        """Generate skill directory hint based on what's been tested vs untested.
-
-        Replaces the static _PHASE_SKILL_HINTS dict.
-        """
         parts: list[str] = []
         phase_value = phase.value
 

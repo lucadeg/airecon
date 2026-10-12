@@ -1,7 +1,3 @@
-"""
-Utility tools executor: python_session, edit_file, think, notes.
-"""
-
 from __future__ import annotations
 
 import json
@@ -24,8 +20,6 @@ logger = logging.getLogger("airecon.agent")
 
 
 class _PythonSession:
-    """Persistent Python interpreter session."""
-
     def __init__(self, session_id: str):
         self.session_id = session_id
         self._namespace: dict[str, Any] = {}
@@ -34,7 +28,6 @@ class _PythonSession:
         self._bootstrap()
 
     def _bootstrap(self):
-        """Initialize session with common imports."""
         bootstrap = """
 import os
 import sys
@@ -65,7 +58,6 @@ except ImportError:
         self._exec(bootstrap)
 
     def _exec(self, code: str) -> dict[str, Any]:
-        """Execute code and capture output."""
         from io import StringIO
 
         result_value = None
@@ -122,7 +114,6 @@ except ImportError:
             sys.stderr = old_stderr
 
     def execute(self, code: str) -> dict[str, Any]:
-        """Execute code and update session."""
         self.last_updated = time.time()
         result = self._exec(code)
         self._history.append(code)
@@ -131,7 +122,6 @@ except ImportError:
         return result
 
     def get_state(self) -> dict[str, Any]:
-        """Return namespace snapshot."""
         state = {}
         for k, v in self._namespace.items():
             if k.startswith("__"):
@@ -148,8 +138,6 @@ except ImportError:
 
 
 class _NotesManager:
-    """Manages structured notes with categories and tags."""
-
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(parents=True, exist_ok=True)
@@ -175,7 +163,6 @@ class _NotesManager:
         content: str,
         tags: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Create a new note."""
         note_id = (
             f"note_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(4)}"
         )
@@ -324,8 +311,6 @@ class _NotesManager:
 
 
 class _UtilsExecutorMixin:
-    """Mixin providing utility tools: python_session, edit_file, think, notes."""
-
     def __init__(self) -> None:
         super().__init__()  # Ensure parent init
         self._ensure_utils_runtime_state()
@@ -735,7 +720,6 @@ class _UtilsExecutorMixin:
 
     @staticmethod
     def _sanitize_fts5(query: str) -> str:
-        """Strip FTS5 operator chars and return space-joined tokens (min len 2)."""
         clean = _UtilsExecutorMixin._FTS5_SPECIAL_RE.sub(" ", query)
         tokens = [t for t in clean.split() if len(t) >= 2]
         return " ".join(tokens)

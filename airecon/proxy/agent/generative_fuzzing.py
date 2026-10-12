@@ -107,12 +107,10 @@ def mutate_html_entity(payload: str) -> str:
 
 
 def mutate_backtick(payload: str) -> str:
-    """Wrap in backticks (MySQL)."""
     return f"`{payload}`"
 
 
 def mutate_nested_tags(payload: str) -> str:
-    """Nest XSS payload in multiple tags."""
     if "<script" in payload.lower():
         return f"<div><span>{payload}</span></div>"
     return f"<div>{payload}</div>"
@@ -201,15 +199,6 @@ class GenerativeFuzzingEngine:
         vuln_type: str,
         test_results: list[dict[str, Any]],
     ) -> list[str]:
-        """Evolve population based on test results.
-
-        Args:
-            vuln_type: Vulnerability type to evolve
-            test_results: List of {"payload": str, "fitness": float, "waf": str|None}
-
-        Returns:
-            New generation of payloads
-        """
         if vuln_type not in self.population:
             return []
 
@@ -277,7 +266,6 @@ class GenerativeFuzzingEngine:
     def get_top_payloads(
         self, vuln_type: str, n: int = 10, min_fitness: float = 0.3
     ) -> list[str]:
-        """Get top N payloads for a vulnerability type."""
         best = self.best_payloads.get(vuln_type, [])
         result = [g.payload for g in best if g.fitness >= min_fitness][:n]
         logger.debug(

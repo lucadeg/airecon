@@ -72,7 +72,6 @@ _SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 
 
 def _lookup_category(categories: dict, name: str) -> set[str]:
-    """Look up a category by name across all sub-categories in tools_meta.json."""
     tools: set[str] = set()
     for group_name, subcats in categories.items():
         if not isinstance(subcats, dict):
@@ -84,7 +83,6 @@ def _lookup_category(categories: dict, name: str) -> set[str]:
 
 
 def _collect_shell_binary_names() -> set[str]:
-    """Collect shell-executed tool names from tools_meta.json categories."""
     shell_tools: set[str] = set()
     categories = _TOOLS_META.get("categories", {})
     if isinstance(categories, dict):
@@ -186,7 +184,6 @@ def _load_all_skills() -> dict[str, str]:
 
 
 def _build_phase_appropriate() -> dict[str, set[str]]:
-    """Build phase→appropriate-tools dynamically. No hardcoded tool names."""
     phase_tools: dict[str, set[str]] = {
         "RECON": set(_CORE_TOOLS),
         "ANALYSIS": set(_CORE_TOOLS),
@@ -244,7 +241,6 @@ _ALL_SKILLS: dict[str, str] = _load_all_skills()
 # No hardcoded descriptions in Python code — all maintained in JSON.
 
 def _collect_shell_binary_descriptions() -> dict[str, str]:
-    """Return mapping of shell binary name → description from tools_meta.json."""
     descriptions = _TOOLS_META.get("tool_descriptions", {})
     if not isinstance(descriptions, dict):
         descriptions = {}
@@ -252,7 +248,6 @@ def _collect_shell_binary_descriptions() -> dict[str, str]:
 
 
 def _match_shells_for_phase(phase: str) -> set[str]:
-    """Return shell binaries relevant for the given phase."""
     category_names = _CATEGORY_PHASE_MAP.get(phase, [])
     if not category_names:
         return set()
@@ -395,7 +390,6 @@ def _build_skill_catalog_entries(
 
 
 def extract_binary_from_command(command: str) -> str:
-    """Extract the primary binary/tool name from a shell command."""
     if not command:
         return ""
     cmd = re.sub(r"^cd\s+\S+\s*&&\s*", "", command).strip()
@@ -431,7 +425,6 @@ def extract_binary_from_command(command: str) -> str:
 
 
 def _get_memory_tool_stats() -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
-    """Get tool success/failure counts from cross-session memory."""
     success_counts: dict[str, int] = {}
     failure_counts: dict[str, int] = {}
     use_counts: dict[str, int] = {}
@@ -477,7 +470,6 @@ def score_tool(
     adaptive_tool_scores: dict[str, float] | None = None,
     strategy_tool_sequence: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Score a single tool for relevance."""
     reasons: list[str] = []
     score = 0.5
 
@@ -664,12 +656,6 @@ def rank_tools_for_phase(
     top_n: int | None = None,
     use_memory: bool = True,
 ) -> list[dict[str, Any]]:
-    """Score and rank all available tools for the current phase.
-
-    Phase-blocked tools receive a low score but remain in the ranking so
-    the agent can make evidence-driven cross-phase pivots when warranted.
-    Auto-loads cross-session memory if enabled.
-    """
     if use_memory and tool_success_counts is None and tool_failure_counts is None:
         mem_success, mem_failure, mem_use = _get_memory_tool_stats()
         if tool_success_counts is None:
@@ -723,10 +709,6 @@ def build_tool_recommendation_context(
     wrong_tool_picked: str = "",
     tool_registry: list[dict[str, Any]] | None = None,
 ) -> str:
-    """Build a context string to inject into the conversation.
-
-    Now includes tool descriptions so the agent is NOT blind.
-    """
     parts: list[str] = []
 
     phase_upper = current_phase.upper()

@@ -23,7 +23,6 @@ _scan_profiles_cache: dict[str, Any] | None = None
 
 
 def _load_scan_profile(name: str) -> dict[str, Any]:
-    """Return the override dict for a named scan profile (data-driven, cached)."""
     global _scan_profiles_cache
     if _scan_profiles_cache is None:
         try:
@@ -1181,6 +1180,27 @@ def _write_yaml_with_comments(config: dict, filepath: Path) -> None:
     lines.append("#   3. Tune llm_context_window to your model's context window.")
     lines.append("#   4. Run: airecon start")
     lines.append("")
+    lines.append("# Provider presets — AIRecon works with ANY OpenAI-compatible /v1 endpoint.")
+    lines.append("# Set openai_base_url + openai_model + openai_api_key to one of:")
+    lines.append("#   Local Ollama (via gateway) : http://<host>:11434/v1")
+    lines.append("#       model: qwen3:32b     (keep openai_api_key empty)")
+    lines.append("#   OpenAI (ChatGPT API)       : https://api.openai.com/v1")
+    lines.append("#       model: gpt-4o | gpt-4.1 | o3        key: sk-...")
+    lines.append("#   OpenRouter                 : https://openrouter.ai/api/v1")
+    lines.append("#       model: openai/gpt-4o | anthropic/claude-3.7-sonnet | deepseek/deepseek-r1   key: sk-or-...")
+    lines.append("#   Groq                       : https://api.groq.com/openai/v1")
+    lines.append("#       model: llama-3.3-70b-versatile     key: gsk_...")
+    lines.append("#   DeepSeek                   : https://api.deepseek.com/v1")
+    lines.append("#       model: deepseek-chat | deepseek-reasoner    key: sk-...")
+    lines.append("#   Google Gemini (compat)     : https://generativelanguage.googleapis.com/v1beta/openai/")
+    lines.append("#       model: gemini-2.0-flash            key: <google api key>")
+    lines.append("# Notes:")
+    lines.append("#   - The base URL MUST keep its /v1 (or /openai/v1) suffix.")
+    lines.append("#   - Cloud APIs are billed per token and the agent calls the LLM a LOT.")
+    lines.append("#   - For cloud models lower openai_max_tokens to ~8192-16384 (65536 will 400).")
+    lines.append("#   - Set openai_supports_native_tools: true for GPT/Claude/Gemini/DeepSeek.")
+    lines.append("#   - Anthropic Claude is easiest via OpenRouter or a LiteLLM gateway.")
+    lines.append("")
 
     # Only write essential keys
     essential_keys = _ESSENTIAL_CONFIG_KEYS
@@ -1920,11 +1940,6 @@ def reload_config(config_path: str | None = None) -> Config:
 
 
 def update_config_values(updates: dict[str, Any]) -> Config:
-    """Persist a set of config key updates to config.yaml and reload.
-
-    Reuses the commented YAML writer so the file keeps its sections/comments and
-    all essential keys. Unknown keys are ignored. Returns the reloaded Config.
-    """
     cfg = get_config()
     # Start from current effective values for every known key, then apply updates.
     current: dict[str, Any] = {

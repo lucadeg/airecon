@@ -129,23 +129,6 @@ def load_skill(
     current_phase: str = "",
     effectiveness_score: float = 0.8,
 ) -> dict[str, Any]:
-    """
-    Dynamically load skill files into the agent's context during an active session.
-    This allows the agent to adapt its expertise based on discovered vulnerabilities
-    or technology contexts.
-
-    Args:
-        agent_state: Current agent state containing conversation and session info
-        skills: Comma-separated list of skill file paths (relative to skills/ dir)
-                 Example: "vulnerabilities/sql_injection.md,technologies/react.md"
-        replace_skills: If True, replaces current active skills; if False, adds to them
-        memory_manager: Optional memory manager for persisting successful skill loads
-        current_target: Optional target used for skill-learning correlation
-        current_phase: Optional phase used for skill-learning correlation
-
-    Returns:
-        dict with success status, loaded_skills list, and any errors
-    """
     if not skills or not isinstance(skills, str):
         return {
             "success": False,

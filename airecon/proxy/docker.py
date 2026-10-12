@@ -97,7 +97,6 @@ class DockerEngine:
         return self._connected
 
     async def image_exists(self) -> bool:
-        """Return True if the sandbox image is already built locally."""
         if not shutil.which("docker"):
             return False
         proc = await asyncio.create_subprocess_exec(
@@ -558,7 +557,6 @@ class DockerEngine:
             logger.debug("Container post-mortem setup failed: %s", e)
 
     async def _wait_for_recovery_unlock(self) -> None:
-        """Wait until recovery lock is released — used by execute() to avoid deadlock."""
         while self._recovery_lock.locked():
             await asyncio.sleep(0.5)
 
@@ -919,12 +917,6 @@ class DockerEngine:
         return await self.execute(command, timeout, on_output=on_output)
 
     async def close(self) -> None:
-        """Graceful shutdown hook used by the server lifespan.
-
-        Cancels background tasks and kills any active child processes via
-        force_stop(). The container itself is left in place so it can be
-        inspected or reused; call stop_container() explicitly to remove it.
-        """
         for task in self._background_tasks:
             task.cancel()
         if self._background_tasks:

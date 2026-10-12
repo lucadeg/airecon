@@ -41,7 +41,6 @@ def get_crash_log_path() -> str:
 
 
 def _write_crash_log(header: str) -> None:
-    """Append the current exception traceback to the crash log (best-effort)."""
     import traceback as _tb
 
     try:
