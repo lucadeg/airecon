@@ -7,11 +7,8 @@ from typing import Any
 
 logger = logging.getLogger("airecon.agent")
 
-
 @dataclass
 class _EndpointState:
-    """Tracks what has been tested against a single endpoint/path."""
-
     endpoint: str
     vuln_types_tested: dict[str, list[str]] = field(default_factory=dict)
     findings: int = 0
@@ -43,21 +40,6 @@ class _EndpointState:
 
 
 class AttackSurfaceTracker:
-    """Per-endpoint attack surface coverage tracker.
-
-    Prevents the LLM from repeating the same attack patterns against
-    endpoints that have already been tested without results.
-
-    Usage:
-        tracker = AttackSurfaceTracker()
-        # After each fuzz/analysis tool:
-        tracker.record_test(endpoint="/login", vuln_type="xss",
-                            tool_used="deep_fuzz", findings=1)
-        # Before building the system prompt:
-        hint = tracker.build_coverage_hint()
-        # → injected into the LLM system message
-    """
-
     def __init__(self, max_no_finding_skip: int = 2) -> None:
         self._endpoints: dict[str, _EndpointState] = {}
         self._max_no_finding_skip = max_no_finding_skip
@@ -71,7 +53,6 @@ class AttackSurfaceTracker:
         tool_used: str,
         findings: int = 0,
     ) -> None:
-        """Record that a vulnerability test was run against *endpoint*."""
         normed = self._normalise_endpoint(endpoint)
         state = self._endpoints.setdefault(normed, _EndpointState(endpoint=normed))
         state.record(vuln_type, tool_used)
@@ -80,10 +61,6 @@ class AttackSurfaceTracker:
     # ── Hint generation ────────────────────────────────────────────
 
     def build_coverage_hint(self) -> str | None:
-        """Build a compact hint block for the LLM system prompt.
-
-        Returns ``None`` when there is nothing worth surfacing.
-        """
         if not self._endpoints:
             return None
 
@@ -108,7 +85,6 @@ class AttackSurfaceTracker:
     # ── Serialisation ──────────────────────────────────────────────
 
     def to_dict(self) -> dict[str, Any]:
-        """Serializable snapshot (kept across context truncation)."""
         return {
             ep: {
                 "vuln_types_tested": state.vuln_types_tested,
@@ -119,7 +95,6 @@ class AttackSurfaceTracker:
         }
 
     def restore(self, data: dict[str, Any]) -> None:
-        """Restore from a previously saved snapshot."""
         for ep, info in data.items():
             state = _EndpointState(
                 endpoint=ep,
@@ -133,7 +108,6 @@ class AttackSurfaceTracker:
 
     @staticmethod
     def _normalise_endpoint(endpoint: str) -> str:
-        """Strip scheme/host/query — keep only the meaningful path."""
         if not endpoint:
             return "<root>"
         if endpoint.startswith(("http://", "https://")):

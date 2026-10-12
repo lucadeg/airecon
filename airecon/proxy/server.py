@@ -733,11 +733,6 @@ _tool_probe_cache: dict[str, Any] = {"ts": 0.0, "result": {}}
 
 
 async def _probe_sandbox_tools() -> dict[str, bool]:
-    """Probe actual CLI tool availability inside the sandbox via `which`, cached.
-
-    Returns {tool: present}. Falls back to an empty dict when the sandbox is not
-    reachable so the caller can degrade to the docker-readiness proxy.
-    """
     import time as _time
 
     cfg = get_config()
@@ -1228,10 +1223,6 @@ def _scope_state() -> dict[str, Any]:
 
 @app.post("/api/scope")
 async def update_scope(request: ScopeUpdateRequest) -> ORJSONResponse:
-    """Add/remove scope allow/deny hosts, set enforcement mode, clear, or show.
-
-    Persists to config.yaml and reloads so the running scope guard picks it up.
-    """
     from .config import update_config_values
 
     action = (request.action or "").strip().lower()
@@ -2099,8 +2090,6 @@ async def reset_conversation() -> JSONResponse:
 
 
 def _build_session_recap(session: Any) -> str:
-    """Synthesize a 'previous progress' recap from durable session state so a
-    resumed session shows what was done even after the chat was compacted."""
     try:
         parts: list[str] = []
         target = str(getattr(session, "target", "") or "").strip()

@@ -55,7 +55,6 @@ _JS_ANALYSIS_HINTS: str = (
 
 
 def _get_url_extension(url: str) -> str:
-    """Extract file extension from URL path (without query string)."""
     try:
         parsed = urlparse(url)
         path = parsed.path.rstrip("/")
@@ -69,7 +68,6 @@ def _get_url_extension(url: str) -> str:
 
 
 def extract_parent_directory(url: str) -> str | None:
-    """Extract the parent directory URL from a full URL path."""
     try:
         parsed = urlparse(url)
         path = parsed.path.rstrip("/")
@@ -94,7 +92,6 @@ def extract_parent_directory(url: str) -> str | None:
 
 
 def has_path_parameters(url: str) -> bool:
-    """Check if URL contains path parameters (REST-style or Express-style)."""
     try:
         parsed = urlparse(url)
         path = parsed.path
@@ -114,7 +111,6 @@ def has_path_parameters(url: str) -> bool:
 
 
 def has_query_parameters(url: str) -> bool:
-    """Check if URL has query parameters."""
     try:
         parsed = urlparse(url)
         return bool(parsed.query) and "=" in parsed.query
@@ -124,7 +120,6 @@ def has_query_parameters(url: str) -> bool:
 
 
 def get_query_param_names(url: str) -> list[str]:
-    """Extract query parameter names from URL."""
     try:
         parsed = urlparse(url)
         return list(parse_qs(parsed.query).keys())
@@ -134,7 +129,6 @@ def get_query_param_names(url: str) -> list[str]:
 
 
 def classify_url(url: str) -> dict[str, Any]:
-    """Classify a URL by its extension and patterns to determine testability and priority."""
     ext = _get_url_extension(url)
     has_path = has_path_parameters(url)
     has_query = has_query_parameters(url)
@@ -287,7 +281,6 @@ def classify_url(url: str) -> dict[str, Any]:
 
 
 def filter_static_assets(urls: list[str]) -> tuple[list[str], list[str], list[str]]:
-    """Separate URLs into testable, informational, and static categories."""
     testable: list[str] = []
     informational: list[str] = []
     static: list[str] = []
@@ -307,7 +300,6 @@ def filter_static_assets(urls: list[str]) -> tuple[list[str], list[str], list[st
 
 
 def sort_urls_by_priority(urls: list[str]) -> list[str]:
-    """Sort URLs by priority score (highest first)."""
     scored = []
     for url in urls:
         classification = classify_url(url)
@@ -318,7 +310,6 @@ def sort_urls_by_priority(urls: list[str]) -> list[str]:
 
 
 def build_url_intelligence_context(urls: list[str]) -> str:
-    """Build a structured intelligence context string from a list of URLs."""
     if not urls:
         return ""
 
@@ -392,6 +383,5 @@ def build_url_intelligence_context(urls: list[str]) -> str:
 
 
 def is_endpoint_worth_testing(url: str) -> bool:
-    """Quick check: should this URL be tested for vulnerabilities?"""
     c = classify_url(url)
     return c["is_testable"] or c["is_informational"]

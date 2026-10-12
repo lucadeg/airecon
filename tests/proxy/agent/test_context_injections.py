@@ -205,7 +205,9 @@ class TestEvidenceActionDirective:
 
 
 class TestPruneStaleSystemContext:
-    def test_no_op_when_iteration_not_multiple_of_10(self):
+    def test_prunes_every_iteration_regardless_of_number(self):
+        # Pruning runs every iteration (not gated on iteration%10): at iteration 7
+        # the prunable [HTTP BASELINE] family still collapses to its latest 2.
         agent = _PostAgent()
         agent.state.iteration = 7
         agent.state.conversation = [
@@ -213,9 +215,11 @@ class TestPruneStaleSystemContext:
             {"role": "system", "content": "[HTTP BASELINE] b"},
             {"role": "system", "content": "[HTTP BASELINE] c"},
         ]
-        before = list(agent.state.conversation)
         agent._prune_stale_system_context()
-        assert agent.state.conversation == before
+        assert agent.state.conversation == [
+            {"role": "system", "content": "[HTTP BASELINE] b"},
+            {"role": "system", "content": "[HTTP BASELINE] c"},
+        ]
 
     def test_keeps_two_most_recent_of_each_prefix(self):
         agent = _PostAgent()

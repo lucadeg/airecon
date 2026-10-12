@@ -1,15 +1,3 @@
-"""Unified vulnerability classifier — single source of truth.
-
-Replaces 5 independent keyword-based classifiers:
-- chain_planner._extract_category_from_finding (73 lines)
-- owasp._GENERIC_KEYWORDS (12 lines)
-- owasp._detect_anomalous_pattern (41 lines)
-- patterns.json vuln_hypothesis (56 lines)
-- objective_patterns.json indicators (56 lines)
-
-Design: ontology-driven, weighted regex matching, learnable.
-"""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +15,6 @@ _LEARNED_VULNS_FILE = Path.home() / ".airecon" / "learning" / "discovered_vuln_t
 
 @dataclass
 class ClassificationResult:
-    """Structured classification output."""
     category: str
     subcategory: str
     confidence: float
@@ -37,11 +24,6 @@ class ClassificationResult:
 
 
 class UnifiedVulnClassifier:
-    """Single classifier replacing 5 independent keyword classifiers.
-
-    Uses weighted regex signals + synonym matching + learned types.
-    """
-
     def __init__(self) -> None:
         self._ontology = self._load_ontology()
         self._learned_types: dict[str, Any] = self._load_learned_types()
@@ -207,7 +189,6 @@ class UnifiedVulnClassifier:
         return self._get_escalation_targets(category)
 
     def resolve_labels(self, text: str) -> list[str]:
-        """Resolve free-form text to known ontology labels when possible."""
         normalized = re.sub(r"[^a-z0-9]+", "_", str(text or "").lower()).strip("_")
         if not normalized:
             return []

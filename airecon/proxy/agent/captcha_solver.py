@@ -71,14 +71,6 @@ _DOM_BYPASS_TEMPLATE = """(() => {{
 
 
 class CaptchaSolver:
-    """Universal vision-based CAPTCHA solver.
-
-    Requires config-driven params — no hardcoded defaults, no hardcoded types.
-    Vision is routed through the OpenAI-compatible gateway (LiteLLM/
-    vLLM/hosted): the model sees the screenshot, analyses the HTML, and decides
-    the approach. Requires a vision-capable model behind the gateway.
-    """
-
     def __init__(
         self,
         base_url: str,
@@ -134,7 +126,6 @@ class CaptchaSolver:
         screenshot_b64: str,
         prompt: str,
     ) -> str | None:
-        """Send screenshot to the gateway vision model and get a response."""
         payload = self._vision_payload(screenshot_b64, prompt)
 
         try:
@@ -176,7 +167,6 @@ class CaptchaSolver:
         screenshot_b64: str,
         prompt: str,
     ) -> str | None:
-        """Synchronous fallback using urllib."""
         import urllib.request
 
         payload = json.dumps(
@@ -211,15 +201,6 @@ class CaptchaSolver:
         screenshot_b64: str,
         page_html: str = "",
     ) -> dict[str, Any]:
-        """Ask the LLM to analyse the CAPTCHA and return a structured analysis.
-
-        This is the vision-first approach — the LLM sees the page, identifies
-        the CAPTCHA, determines its type, and selects the best solving strategy.
-
-        Returns:
-            dict with: captcha_present, provider, type_description, approach,
-                       bypass_selectors, input_names, reasoning
-        """
         raw_answer = await self._call_llm_vision(
             screenshot_b64,
             _CAPTCHA_ANALYSE_PROMPT,
@@ -277,26 +258,6 @@ class CaptchaSolver:
         page_html: str = "",
         captcha_type: str | None = None,
     ) -> dict[str, Any]:
-        """Universal CAPTCHA solver — adaptive, vision-driven.
-
-        Strategy:
-        1. Let the LLM analyse the screenshot to identify and classify the CAPTCHA
-        2. Choose the appropriate solving approach based on the analysis:
-           - dom_bypass: inject placeholder token into response fields
-           - text_extract: read CAPTCHA text using LLM vision
-           - interactive: return analysis for human guidance
-           - impossible: report failure
-        3. Execute the chosen approach
-
-        Args:
-            page_screenshot_b64: Base64-encoded screenshot of the page
-            page_html: Full page HTML (used for context, bypass injection)
-            captcha_type: Optional hint (e.g. from caller's knowledge).
-                          If not provided, the LLM auto-detects.
-
-        Returns:
-            dict with: success, method, captcha_type, solution, bypass_js
-        """
         result: dict[str, Any] = {
             "success": False,
             "method": None,
@@ -374,7 +335,6 @@ class CaptchaSolver:
     # ── Helper ───────────────────────────────────────────────────────────────
 
     def is_enabled(self) -> bool:
-        """Check if vision-based CAPTCHA solving is enabled."""
         return bool(self.captcha_model and self.captcha_model.strip())
 
 
@@ -382,7 +342,6 @@ class CaptchaSolver:
 
 
 def _parse_llm_json(raw: str) -> dict[str, Any] | None:
-    """Extract JSON from LLM response — handles markdown code blocks too."""
     # Strip markdown code fences if present
     stripped = raw.strip()
     if stripped.startswith("```"):
@@ -444,10 +403,6 @@ def _build_dom_bypass(
     analysis: dict[str, Any],
     page_html: str,
 ) -> str | None:
-    """Build a DOM bypass injection script from the analysis.
-
-    Uses selectors from the LLM analysis + well-known input names as fallback.
-    """
     selectors = analysis.get("bypass_selectors", [])
     input_names = analysis.get("input_names", [])
 

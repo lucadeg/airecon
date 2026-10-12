@@ -1,14 +1,3 @@
-"""Dynamic vulnerability classifier — evidence-driven, NOT keyword-pattern based.
-
-Old approach (removed): hardcoded _GENERIC_KEYWORDS dict + regex anomaly detection.
-That system only caught findings where evidence text contained specific words.
-If the LLM wrote "balance went negative" it missed the race condition because
-"race" wasn't in the text.  If the evidence said "user could change role field"
-it missed IDOR because "access"/"permission"/"privilege" weren't present.
-
-New approach: classify by impact structure, not by words.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -151,13 +140,6 @@ _OWL_LABELS: dict[str, str] = {
 
 
 def _extract_effect_words(text: str) -> tuple[set[str], set[str]]:
-    """Extract verbs and target nouns from evidence text.
-
-    This replaces keyword-in-category matching.  Instead of checking if text
-    contains words from a hardcoded category list, we identify what ACTION
-    is being described (verbs) and what is being AFFECTED (targets near those
-    verbs in proximity).
-    """
     text_lower = text.lower()
     words = text_lower.split()
     verbs = set()
@@ -193,11 +175,6 @@ def _extract_effect_words(text: str) -> tuple[set[str], set[str]]:
 
 
 def _classify_by_keyword(summary: str) -> list[str]:
-    """Keyword-based OWASP classification — supplements impact-based classification.
-
-    Returns list of OWASP tags matched by keywords in the summary.
-    This ensures well-known vulnerability keywords map to correct OWASP IDs.
-    """
     summary_lower = summary.lower()
     owasp_tags = []
 
@@ -217,11 +194,6 @@ def _classify_by_keyword(summary: str) -> list[str]:
     ]
 
     def _is_negated(vuln_kw: str) -> bool:
-        """Check if a vuln keyword is negated by nearby negative words.
-        
-        Only suppresses if the negation is specifically about this vuln type
-        (e.g., 'no sql injection' should not suppress 'ssrf').
-        """
         idx = summary_lower.find(vuln_kw)
         if idx < 0:
             return False
@@ -277,7 +249,6 @@ def _classify_by_keyword(summary: str) -> list[str]:
 
 
 def _classify_by_tag(tags: list[str]) -> list[str]:
-    """Classify vulnerability by tags (e.g., 'ssrf' tag → owasp:A10:2021)."""
     owasp_tags = []
     tag_lower = [t.lower() for t in tags]
 
@@ -313,12 +284,6 @@ def _classify_by_impact(
     verbs: set[str],
     targets: set[str],
 ) -> tuple[str, int]:
-    """Match effect structure against impact signatures.
-
-    Returns (category, severity_base).
-    A finding matches a signature if it shares verbs AND/OR targets with it.
-    The score is the Jaccard-like overlap of verbs + targets.
-    """
     best_category = "UNKNOWN"
     best_severity = 1
     best_score = 0.0
@@ -350,7 +315,6 @@ def _calculate_dynamic_severity(
     confidence: float,
     has_exploit_evidence: bool,
 ) -> int:
-    """Adjust severity by confirmation and impact scope."""
     if category == "UNKNOWN":
         return 1
 
@@ -372,7 +336,6 @@ def _infer_impact_from_context(
     technology: list[str],
     endpoint: str,
 ) -> dict[str, list[str]]:
-    """Infer attack impact from context, not from hardcoded tech strings."""
     impacts: list[str] = []
 
     endpoint_lower = endpoint.lower() if endpoint else ""
@@ -403,7 +366,6 @@ def _infer_impact_from_context(
 
 
 def _generate_recommendation(category: str, severity: int) -> str:
-    """Generate remediation from category semantics, not hardcoded per-category dicts."""
     recommendations = {
         "DATA_EXPOSURE": "Restrict data access with proper authorization; encrypt sensitive data; audit data flows",
         "STATE_MANIPULATION": "Validate and sanitize all inputs; use parameterized queries; implement integrity checks",
@@ -425,7 +387,6 @@ def _generate_recommendation(category: str, severity: int) -> str:
 
 
 def _generate_generic_recommendation(category: str, severity: int) -> str:
-    """Same as _generate_recommendation — kept for API compatibility."""
     return _generate_recommendation(category, severity)
 
 
@@ -439,21 +400,6 @@ def classify_vulnerability(
     endpoint: str = "",
     evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Classify a vulnerability by its IMPACT STRUCTURE, not by keywords.
-
-    Steps:
-    1. Extract effect verbs and target nouns from the evidence summary
-    2. Match against 7 impact signatures (DATA_EXPOSURE, STATE_MANIPULATION,
-       UNAUTHORIZED_ACCESS, LOGIC_FLAW, NETWORK_ABUSE, RESOURCE_EXHAUSTION,
-       INFORMATION_DISCLOSURE)
-    3. Score by Jaccard overlap of verb+target sets
-    4. Adjust severity by confidence and exploit evidence
-
-    This catches logic flaws that keyword matching misses:
-    - "balance went negative" → LOGIC_FLAW (no "race" keyword needed)
-    - "changed role field to admin" → UNAUTHORIZED_ACCESS or STATE_MANIPULATION
-    - "skipped payment step" → LOGIC_FLAW (not just the word "bypass")
-    """
     summary_text = " ".join(str(summary).strip().split())
     if not summary_text:
         return {
@@ -650,7 +596,6 @@ def owasp_label(owasp_id: str) -> str:
 
 
 def remediation_for_owasp(owasp_id: str) -> list[str]:
-    """Generic remediation by OWASP ID — no longer used as primary flow."""
     generic = {
         "A01:2021": ["Implement least privilege", "Use RBAC", "Deny by default"],
         "A02:2021": ["Use strong encryption", "Rotate keys regularly", "Use HSMs"],
@@ -670,7 +615,6 @@ def remediation_for_owasp(owasp_id: str) -> list[str]:
 
 
 def cwe_for_owasp(owasp_id: str) -> list[str]:
-    """Return CWE IDs associated with an OWASP category as formatted strings."""
     cwe_map = {
         "A01:2021": [22, 59, 73, 913],
         "A02:2021": [259, 261, 266, 319, 326, 327],

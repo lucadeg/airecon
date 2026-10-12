@@ -114,7 +114,6 @@ _zeroday_file = Path(__file__).parent / "data" / "zeroday_patterns.json.bak"
 _attack_chain_file = Path(__file__).parent / "data" / "attack_chains.json"
 
 def _load_expert_patterns() -> dict[str, Any]:
-    """Load expert patterns from unified catalog."""
     try:
         from .data_loader import load_vuln_patterns
         data = load_vuln_patterns()
@@ -123,7 +122,6 @@ def _load_expert_patterns() -> dict[str, Any]:
         return {}
 
 def _load_zeroday_patterns() -> dict[str, Any]:
-    """Load zeroday patterns from unified catalog (CRITICAL severity only)."""
     try:
         from .data_loader import load_zeroday_patterns
         return load_zeroday_patterns()
@@ -292,7 +290,6 @@ class Fuzzer:
         return get_config()
 
     async def _profile_target_if_enabled(self):
-        """Profile target if intelligence is enabled."""
         try:
             cfg = self._get_fuzzer_config()
             if (
@@ -317,7 +314,6 @@ class Fuzzer:
     def _prioritize_vuln_types(
         self, vuln_types: list[str] | None, profile
     ) -> list[str] | None:
-        """Prioritize vulnerability types based on target profile."""
         if not profile or not profile.attack_surface:
             return vuln_types
 
@@ -348,11 +344,6 @@ class Fuzzer:
         return vuln_types
 
     async def _init_generative_fuzzing_if_enabled(self):
-        """Initialize generative fuzzing engine.
-
-        Generative fuzzing is now enabled by default for all fuzzing operations.
-        The config gates are kept for backward compatibility but default to True.
-        """
         try:
             cfg = self._get_fuzzer_config()
             # Generative fuzzing is now always enabled unless explicitly disabled
@@ -376,7 +367,6 @@ class Fuzzer:
             return None
 
     async def _evolve_payloads_batch(self, gen_engine, results: list, batch_idx: int):
-        """Evolve payloads based on batch results."""
         try:
             test_results = []
             for r in results:
@@ -752,13 +742,6 @@ class Fuzzer:
         param: str,
         base_payloads: list[str],
     ) -> list[str]:
-        """Select payloads based on target context.
-
-        Enhances static payload lists with context-aware filtering and augmentation:
-        - Technology stack (e.g., MySQL-specific payloads for MySQL)
-        - Input context (e.g., numeric payloads for number fields)
-        - Existing findings (e.g., if SQLi found, add RCE payloads)
-        """
         if not target_profile:
             return base_payloads
 
@@ -907,7 +890,6 @@ class Fuzzer:
         return verified_results
 
     async def _verify_findings(self, findings: list[FuzzResult]) -> list[FuzzResult]:
-        """Run zero-FP verification on all findings."""
         try:
             from .config import get_config
 
@@ -2296,7 +2278,6 @@ class ExpertHeuristics:
 
     @classmethod
     def _load_heuristic_data(cls) -> None:
-        """Load all pattern data files once at runtime."""
         if cls._heuristic_data_loaded:
             return
 
@@ -2471,11 +2452,6 @@ class ExpertHeuristics:
 
     @classmethod
     def _build_vuln_suggestions_from_patterns(cls, vuln_type: str) -> list[str]:
-        """Generate testing suggestions dynamically from data files.
-
-        Falls back to patterns.json expert patterns, business logic patterns,
-        and tech correlations — all driven by the vuln_type keyword.
-        """
         suggestions: list[str] = []
 
         # 1. Look up matching expert patterns by indicator overlap

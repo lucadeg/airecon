@@ -1,8 +1,3 @@
-"""Shared constants for Airecon agent modules.
-
-Centralizes values previously duplicated across multiple files.
-"""
-
 from __future__ import annotations
 
 import json
@@ -48,7 +43,6 @@ EPHEMERAL_PREFIXES: tuple[str, ...] = (
 def _load_tool_classifications(
     field: str, fallback: frozenset[str] | None = None
 ) -> frozenset[str]:
-    """Load tool classification set from tools_meta.json."""
     try:
         path = Path(__file__).parent.parent / "data" / "tools_meta.json"
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -62,7 +56,6 @@ def _load_tool_classifications(
 
 
 def _load_tool_schema_enum(tool_name: str, property_name: str) -> frozenset[str]:
-    """Load an enum property from tools.json for a specific callable tool."""
     try:
         path = Path(__file__).parent.parent / "data" / "tools.json"
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -204,7 +197,6 @@ DEFAULT_USER_AGENT: str = (
 # WAF detection — loaded from waf_signatures.json (was duplicated)
 # ---------------------------------------------------------------------------
 def _load_waf_block_status_codes() -> frozenset[int]:
-    """Load WAF block status codes from waf_signatures.json."""
     try:
         path = Path(__file__).parent.parent / "data" / "waf_signatures.json"
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -388,7 +380,6 @@ CD_DIR_PREFIX_RE = re.compile(r"^cd\s+\S+\s*&&\s*")
 # WAF BYPASS STRATEGY — loaded from waff_bypass.json (was duplicated)
 # ---------------------------------------------------------------------------
 def _load_waf_bypass_strategies() -> dict[str, list[dict[str, Any]]]:
-    """Load WAF bypass strategies from waff_bypass.json."""
     try:
         path = Path(__file__).parent.parent / "data" / "waff_bypass.json"
         data = json.loads(path.read_text(encoding="utf-8"))

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import time
+from typing import TYPE_CHECKING, Any
 
 from ..config import get_config
 from ..memory import get_memory_manager
@@ -17,6 +18,64 @@ logger = logging.getLogger("airecon.agent")
 
 
 class _LifecycleMixin:
+    # Attributes/methods provided by AgentLoop or sibling mixins — declared for
+    # the type checker only; no runtime effect.
+    if TYPE_CHECKING:
+        state: AgentState
+        engine: Any
+        llm: Any
+        pipeline: Any
+        _session: Any
+        _tools_llm: list[dict[str, Any]] | None
+        _blocked_tools: set[str]
+        _is_subagent: bool
+        _ctf_mode: bool
+        _override_max_iterations: int | None
+        _adaptive_num_ctx: int
+        _CTF_MAX_ITERATIONS: int
+        _caido_available: bool
+        _memory_manager: Any
+        _initial_messages: list[dict[str, Any]]
+        _executed_tool_counts: Any
+        _executed_cmd_hashes: Any
+        _executed_cmd_order: Any
+        _recent_tool_names: Any
+
+        def _sync_recovery_state_from_session(self) -> None: ...
+        def _sync_token_usage_from_session(self) -> None: ...
+        def _load_session_persistence(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _build_critical_findings_context(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _build_handoff_summary(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _recompute_used_tokens_from_conversation(self) -> int: ...
+        def _get_current_phase(self) -> Any: ...
+
+    def _build_text_tool_protocol(self) -> str:
+        lines: list[str] = []
+        for t in self._tools_llm or []:
+            fn = t.get("function", {}) if isinstance(t, dict) else {}
+            name = fn.get("name", "")
+            if not name:
+                continue
+            desc = " ".join(str(fn.get("description", "")).split())[:160]
+            props = (fn.get("parameters", {}) or {}).get("properties", {}) or {}
+            required = set((fn.get("parameters", {}) or {}).get("required", []) or [])
+            params = ", ".join(
+                f"{p}*" if p in required else p for p in props
+            )
+            lines.append(f"- {name}({params}): {desc}")
+        catalog = "\n".join(lines)
+        return (
+            "[SYSTEM: TEXT-MODE TOOL CALLING]\n"
+            "This gateway does NOT accept native function calls. To run a tool, "
+            "emit EXACTLY one JSON object wrapped in <tool_call> tags — nothing "
+            "else on those lines:\n"
+            '<tool_call>{"name": "<tool>", "arguments": {"<arg>": "<value>"}}'
+            "</tool_call>\n"
+            "Call ONE tool per turn and wait for its result before the next. "
+            "Parameters marked * are required.\n\n"
+            "AVAILABLE TOOLS:\n" + catalog
+        )
+
     async def refresh_tool_registry(self) -> None:
         engine_tools = await self.engine.discover_tools()
         tools_llm = self.engine.tools_to_llm_format(engine_tools)
@@ -103,10 +162,16 @@ class _LifecycleMixin:
 
         logger.info("Agent initialized with %d tools", len(self._tools_llm or []))
 
-        tool_names = [t["function"]["name"] for t in self._tools_llm]
+        tool_names = [t["function"]["name"] for t in (self._tools_llm or [])]
         self.state.add_message(
             "system", f"[SYSTEM: REGISTERED TOOLS]\n{', '.join(tool_names)}"
         )
+
+        _llm = getattr(self, "llm", None)
+        if _llm is not None and not getattr(_llm, "supports_native_tools", True):
+            self.state.add_message(
+                "system", self._build_text_tool_protocol()
+            )
 
         self._initial_messages = list(self.state.conversation)
 

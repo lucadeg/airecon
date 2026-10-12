@@ -16,7 +16,6 @@ logger = logging.getLogger("airecon.agent.semantic")
 
 @dataclass
 class VulnIntent:
-    """Represents the semantic intent of a vulnerability test."""
     vuln_class: str          # e.g., "sql_injection", "xss", "idor"
     target_endpoint: str     # e.g., "/api/users", "/login"
     target_parameter: str    # e.g., "id", "username", ""
@@ -26,20 +25,11 @@ class VulnIntent:
 
 
 class SemanticDeduplicator:
-    """Tracks vulnerability test intents to prevent semantic repetition.
-    
-    Example: These all map to the SAME intent:
-      - sqlmap -u "http://target/page?id=1"
-      - Manual test: id=1' OR '1'='1
-      - curl "http://target/page?id=1%27%20OR%20%271%27%3D%271"
-    """
-
     # Vuln detection patterns loaded from unified_patterns.json
     _vuln_patterns: dict[str, Any] | None = None
 
     @classmethod
     def _ensure_patterns_loaded(cls) -> None:
-        """Load vuln detection patterns from unified_patterns.json on first use."""
         if cls._vuln_patterns is not None:
             return
         try:
@@ -79,7 +69,6 @@ class SemanticDeduplicator:
         self._max_history = max_history
 
     def _detect_vuln_class_from_command(self, command: str) -> str:
-        """Detect vulnerability class from command string using pattern matching."""
         cmd_lower = command.lower()
 
         vuln_classes = ["sql_injection", "xss", "path_traversal", "command_injection", "ssrf", "idor"]
@@ -97,7 +86,6 @@ class SemanticDeduplicator:
         return "unknown"
 
     def _detect_vuln_class_from_result(self, result_text: str) -> str:
-        """Detect vulnerability class from tool output."""
         result_lower = result_text.lower()
 
         for vuln_class in ["sql_injection", "xss", "path_traversal", "command_injection", "ssrf", "idor"]:
@@ -109,7 +97,6 @@ class SemanticDeduplicator:
         return "unknown"
 
     def _extract_endpoint_and_param(self, command: str) -> tuple[str, str]:
-        """Extract target endpoint and parameter from command."""
         endpoint = ""
         parameter = ""
 
@@ -132,7 +119,6 @@ class SemanticDeduplicator:
         return endpoint, parameter
 
     def _detect_test_variant(self, command: str, vuln_class: str) -> str:
-        """Detect which variant of the vulnerability is being tested."""
         cmd_lower = command.lower()
 
         variants = self._get_test_variants(vuln_class)
@@ -143,7 +129,6 @@ class SemanticDeduplicator:
         return "standard"
 
     def build_intent(self, command: str, result_text: str = "") -> VulnIntent | None:
-        """Build a vulnerability intent from command and result."""
         vuln_class = self._detect_vuln_class_from_command(command)
         if vuln_class == "unknown" and result_text:
             vuln_class = self._detect_vuln_class_from_result(result_text)
@@ -162,16 +147,10 @@ class SemanticDeduplicator:
         )
 
     def _intent_hash(self, intent: VulnIntent) -> str:
-        """Create a semantic hash of the intent for deduplication."""
         raw = f"{intent.vuln_class}:{intent.target_endpoint}:{intent.target_parameter}:{intent.test_variant}"
         return hashlib.sha256(raw.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest()[:16]
 
     def is_duplicate_test(self, intent: VulnIntent) -> tuple[bool, str]:
-        """Check if this vulnerability intent has already been tested.
-        
-        Returns:
-            (is_duplicate, message)
-        """
         intent_key = self._intent_hash(intent)
 
         if intent_key not in self._tested_intents:
@@ -204,7 +183,6 @@ class SemanticDeduplicator:
         return False, f"[SEMANTIC TRACKING] {existing.vuln_class} attempt #{existing.attempt_count + 1} on same target"
 
     def record_test(self, intent: VulnIntent, success: bool = False) -> None:
-        """Record that a vulnerability test was attempted."""
         intent_key = self._intent_hash(intent)
 
         if intent_key not in self._tested_intents:
@@ -221,7 +199,6 @@ class SemanticDeduplicator:
                 del self._tested_intents[key]
 
     def get_coverage_summary(self) -> dict[str, Any]:
-        """Get summary of vulnerability coverage for reporting."""
         by_class: dict[str, int] = {}
         by_endpoint: dict[str, int] = {}
         confirmed: list[str] = []
@@ -244,7 +221,6 @@ class SemanticDeduplicator:
         }
 
     def get_untested_vectors(self, endpoints: list[str], all_vuln_classes: list[str]) -> list[str]:
-        """Suggest vulnerability classes that haven't been tested on given endpoints."""
         untested = []
         for endpoint in endpoints:
             for vuln_class in all_vuln_classes:

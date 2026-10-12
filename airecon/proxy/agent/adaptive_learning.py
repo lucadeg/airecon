@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import asyncio
 import concurrent.futures
 import hashlib
@@ -29,16 +28,13 @@ _TOOLS_JSON = Path(__file__).resolve().parents[1] / "data" / "tools.json"
 
 
 def _load_tools_meta() -> dict[str, Any]:
-    """Load tool metadata from data/tools_meta.json (cached at module level)."""
     try:
         return json.loads(_TOOLS_META.read_text(encoding="utf-8"))
     except Exception as exc:
         logger.warning("tools_meta.json unavailable (%s)", exc)
         return {}
 
-
 def _load_tool_definitions() -> list[dict[str, Any]]:
-    """Load callable tool definitions from data/tools.json."""
     try:
         data = json.loads(_TOOLS_JSON.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -142,8 +138,6 @@ class LearnedInsight:
 
 @dataclass
 class ObservationLog:
-    """A single raw observation stored for later LLM abstraction."""
-
     timestamp: float
     tool_name: str
     arguments: dict[str, Any]
@@ -180,7 +174,6 @@ class AdaptiveLearningEngine:
     # ── Persistence ──────────────────────────────────────────────────────────
 
     def _load_state(self) -> None:
-        """Load learned state from disk. Non-blocking — silent on failure."""
         try:
             state_path = self._state_file
             if not state_path.exists():
@@ -213,12 +206,6 @@ class AdaptiveLearningEngine:
             logger.debug("Failed to load learning state: %s", exc)
 
     def _import_from_memory_db(self) -> None:
-        """Import existing tool_usage and patterns from ~/.airecon/memory/airecon.db.
-
-        This bridges the gap between the old SQLite-based memory system and
-        the new JSON-based persistent learning system so airecon doesn't
-        start from zero — it inherits all past session data.
-        """
         if not _MEMORY_DB.exists():
             return
 
@@ -296,7 +283,6 @@ class AdaptiveLearningEngine:
             logger.debug("Failed to import from memory DB: %s", exc)
 
     def save_state(self) -> None:
-        """Persist learned state to disk."""
         try:
             self._state_dir.mkdir(parents=True, exist_ok=True)
             data = {
@@ -438,7 +424,6 @@ class AdaptiveLearningEngine:
             )
 
     def _sync_to_memory_db(self) -> None:
-        """Sync learned tool performance back to ~/.airecon/memory/airecon.db."""
         if not _MEMORY_DB.exists():
             return
         try:
@@ -578,11 +563,6 @@ class AdaptiveLearningEngine:
     # ── Bootstrap ────────────────────────────────────────────────────────────
 
     def _bootstrap_insights_from_patterns(self) -> None:
-        """Convert imported StrategyPatterns into LearnedInsights immediately.
-
-        This ensures the agent has actionable intelligence from session 1
-        instead of waiting for 30+ observations + LLM distillation.
-        """
         now = time.time()
         type_to_category = {
             "RECON": "tool_tech",
@@ -729,7 +709,6 @@ class AdaptiveLearningEngine:
         context: dict | None = None,
         target_type: str = "",
     ) -> None:
-        """Record a tool execution result for learning."""
         if tool_name not in self.tool_performances:
             self.tool_performances[tool_name] = ToolPerformance(tool_name=tool_name)
 
@@ -794,10 +773,6 @@ class AdaptiveLearningEngine:
         target_type: str,
         vuln_found: str | None = None,
     ) -> None:
-        """Log a raw observation for later abstraction / LLM distillation.
-
-        These are compressed summaries — not full outputs — to keep memory light.
-        """
         obs = ObservationLog(
             timestamp=time.time(),
             tool_name=tool_name,
@@ -821,7 +796,6 @@ class AdaptiveLearningEngine:
         success: bool,
         confidence: float = 0.0,
     ) -> None:
-        """Record a strategy pattern result."""
         pattern_id = self._make_pattern_id(conditions, tool_sequence)
 
         existing = None
@@ -855,12 +829,6 @@ class AdaptiveLearningEngine:
     def distill_insights(
         self, base_url: str = "", model: str = "", api_key: str = ""
     ) -> list[LearnedInsight]:
-        """Ask the LLM to abstract patterns from recent observations.
-
-        Returns newly created insights (not the full catalog).
-        This is how airecon 'learns' — raw data → generalized rules via LLM.
-        Routed through the OpenAI-compatible gateway (LiteLLM/vLLM/hosted).
-        """
         if not base_url or not model:
             logger.debug("distill_insights: no LLM config, skipping")
             return []
@@ -968,7 +936,6 @@ class AdaptiveLearningEngine:
         exclude: list[str] | None = None,
         top_n: int = 5,
     ) -> list[tuple[str, float]]:
-        """Recommend top N tools based on learned performance."""
         exclude = exclude or []
         scored: list[tuple[str, float]] = []
 
@@ -1052,11 +1019,6 @@ class AdaptiveLearningEngine:
         phase: str = "",
         tech_stack: list[str] | None = None,
     ) -> list[LearnedInsight]:
-        """Return insights that match the current context.
-
-        This is the 'knowledge injection' hook — before each LLM call,
-        inject relevant insights so the agent benefits from past learning.
-        """
         if not self.learned_insights:
             return []
 
@@ -1153,8 +1115,6 @@ _TARGET_MEMORY_DIR = Path.home() / ".airecon" / "memory" / "by_target"
 
 @dataclass
 class TargetMemory:
-    """Actionable intelligence for a specific target domain/URL."""
-
     target: str
     first_seen: float = 0.0
     last_seen: float = 0.0
@@ -1174,7 +1134,6 @@ class TargetMemory:
     _MAX_PARAMS = 200
 
     def prune(self) -> None:
-        """Trim lists to their max sizes, keeping most recent entries."""
         if len(self.endpoints) > self._MAX_ENDPOINTS:
             self.endpoints = self.endpoints[-self._MAX_ENDPOINTS:]
         if len(self.vulnerabilities) > self._MAX_VULNS:
@@ -1188,13 +1147,6 @@ class TargetMemory:
 
 
 class TargetMemoryStore:
-    """Persistence layer for per-target security intelligence.
-
-    Stores: discovered endpoints, vulns with working payloads,
-            WAF bypass techniques, sensitive parameters, auth flows.
-    Loads automatically when the same target reappears in a new session.
-    """
-
     def __init__(self, base_dir: Path | None = None):
         self.base_dir = base_dir or _TARGET_MEMORY_DIR
         self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -1202,7 +1154,6 @@ class TargetMemoryStore:
         self._session_touched: set[str] = set()
 
     def _normalize_target(self, target: str) -> str:
-        """Strip protocol, port, and path — returns bare domain."""
         if not target:
             return ""
         t = target.lower().strip()
@@ -1223,7 +1174,6 @@ class TargetMemoryStore:
     # ── Load / Save ──────────────────────────────────────────────────────────
 
     def load(self, target: str) -> TargetMemory | None:
-        """Load memory for a target. Returns None if target is unknown."""
         norm = self._normalize_target(target)
         if norm in self._cache:
             return self._cache[norm]
@@ -1249,7 +1199,6 @@ class TargetMemoryStore:
             return None
 
     def save(self, target: str, tm: TargetMemory | None = None) -> None:
-        """Persist target memory atomically."""
         norm = self._normalize_target(target)
         mem = tm or self._cache.get(norm)
         if mem is None:
@@ -1291,7 +1240,6 @@ class TargetMemoryStore:
     # ── Recording ────────────────────────────────────────────────────────────
 
     def ensure(self, target: str) -> TargetMemory:
-        """Get existing or create new TargetMemory."""
         norm = self._normalize_target(target)
         if norm in self._cache:
             return self._cache[norm]
@@ -1316,7 +1264,6 @@ class TargetMemoryStore:
             tm.endpoints.append(path)
 
     def record_vulnerability(self, target: str, vuln: dict[str, str]) -> None:
-        """Record a vuln dict: {type, path, param, payload, severity, confirmed}."""
         tm = self.ensure(target)
         # Dedup by type+path+param
         key = f"{vuln.get('type','')}|{vuln.get('path','')}|{vuln.get('param','')}"
@@ -1327,7 +1274,6 @@ class TargetMemoryStore:
         tm.vulnerabilities.append(vuln)
 
     def record_bypass(self, target: str, bypass: dict[str, str]) -> None:
-        """Record WAF bypass: {technique, header, path, description}."""
         tm = self.ensure(target)
         technique = bypass.get("technique", "")
         for existing in tm.waf_bypass:
@@ -1360,18 +1306,12 @@ class TargetMemoryStore:
     # ── Querying ─────────────────────────────────────────────────────────────
 
     def list_targets(self) -> list[str]:
-        """Return all known target domains."""
         return [
             f.stem for f in self.base_dir.glob("*.json")
             if not f.name.endswith(".tmp")
         ]
 
     def get_injection_text(self, target: str) -> str | None:
-        """Build a system message block for LLM context with target intel.
-
-        Returns None if no memory exists for this target.
-        Max ~2000 chars to preserve context budget.
-        """
         norm = self._normalize_target(target)
         tm = self._cache.get(norm) or self.load(target)
         if tm is None:
@@ -1459,10 +1399,6 @@ class TargetMemoryStore:
 # ── Helper ───────────────────────────────────────────────────────────────────
 
 def _extract_tool_name(raw_cmd: str) -> str:
-    """Extract the base tool from a raw command string.
-
-    Uses the tool metadata catalog from data/tools_meta.json for lookup.
-    """
     if not raw_cmd:
         return ""
 
@@ -1511,7 +1447,6 @@ def _iter_phase_category_tools(meta: dict[str, Any], phase_name: str) -> set[str
 
 
 def _cache_known_tool_names() -> list[str]:
-    """Build a deduplicated list of all known tool names from repo metadata."""
     global _TOOL_NAME_CACHE
     if _TOOL_NAME_CACHE:
         return _TOOL_NAME_CACHE
@@ -1554,7 +1489,6 @@ _PHASE_TOOL_CACHE: dict[str, set[str]] = {}
 
 
 def _cache_phase_tools() -> dict[str, set[str]]:
-    """Build phase → tool set mapping from tools_meta.json."""
     global _PHASE_TOOL_CACHE
     if _PHASE_TOOL_CACHE:
         return _PHASE_TOOL_CACHE
@@ -1581,10 +1515,6 @@ def _cache_phase_tools() -> dict[str, set[str]]:
 
 
 def _infer_tool_purpose(tool_name: str, conditions: dict) -> str:
-    """Return a human-readable purpose summary for a tool.
-
-    Uses tool_descriptions from tools_meta.json.
-    """
     descriptions = _load_tools_meta().get("tool_descriptions", {})
     tool_lower = tool_name.lower()
 
@@ -1614,7 +1544,6 @@ def _infer_tool_purpose(tool_name: str, conditions: dict) -> str:
 
 
 def _infer_phase_from_tool(tool_name: str) -> str:
-    """Guess which phase a tool belongs to based on tools_meta.json categories."""
     phase_tools = _cache_phase_tools()
     tool_lower = tool_name.lower()
 
@@ -1626,7 +1555,6 @@ def _infer_phase_from_tool(tool_name: str) -> str:
 
 
 def _parse_insights_json(raw: str) -> list[dict[str, Any]]:
-    """Extract JSON array from LLM response."""
     stripped = raw.strip()
     if stripped.startswith("```"):
         stripped = stripped.split("\n", 1)[-1]

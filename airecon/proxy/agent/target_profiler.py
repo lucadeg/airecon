@@ -52,8 +52,6 @@ _SECURITY_WEIGHTS: dict[str, float] = {
 
 @dataclass
 class TechFingerprint:
-    """Detected technology with confidence."""
-
     name: str
     version: str = ""
     confidence: float = 0.0
@@ -62,8 +60,6 @@ class TechFingerprint:
 
 @dataclass
 class SecurityFinding:
-    """Security posture finding."""
-
     category: str
     severity: str  # critical, high, medium, low, info
     title: str
@@ -74,8 +70,6 @@ class SecurityFinding:
 
 @dataclass
 class TargetProfile:
-    """Complete target profile."""
-
     target_url: str
     profiled_at: float = 0.0
     technologies: list[TechFingerprint] = field(default_factory=list)
@@ -94,8 +88,6 @@ class TargetProfile:
 
 
 class TargetProfiler:
-    """Intelligent target profiling engine."""
-
     def __init__(self, timeout: int = 15):
         self.timeout = timeout
         self.profiles: dict[str, TargetProfile] = {}
@@ -103,7 +95,6 @@ class TargetProfiler:
     async def profile_target(
         self, url: str, headers: dict | None = None
     ) -> TargetProfile:
-        """Create a comprehensive profile of the target."""
         logger.info("[TargetProfile] Starting profiling of %s", url)
         profile = TargetProfile(target_url=url, profiled_at=time.time())
 
@@ -159,7 +150,6 @@ class TargetProfiler:
         return profile
 
     def _detect_technologies(self, resp: httpx.Response) -> list[TechFingerprint]:
-        """Detect technologies from response headers and body."""
         detected: list[TechFingerprint] = []
         combined = (
             resp.headers.get("Server", "")
@@ -219,7 +209,6 @@ class TargetProfiler:
         return detected
 
     def _assess_security_posture(self, resp: httpx.Response) -> list[SecurityFinding]:
-        """Assess security posture from response."""
         findings: list[SecurityFinding] = []
         headers_lower = {k.lower(): v for k, v in resp.headers.items()}
 
@@ -316,7 +305,6 @@ class TargetProfiler:
         return findings
 
     def _calculate_security_score(self, findings: list[SecurityFinding]) -> float:
-        """Calculate security score (0-100, lower = worse)."""
         if not findings:
             logger.debug("[TargetProfile] Security score: 100.0 (no findings)")
             return 100.0
@@ -345,7 +333,6 @@ class TargetProfiler:
     def _determine_risk_level(
         self, security_score: float, technologies: list[TechFingerprint]
     ) -> str:
-        """Determine overall risk level."""
         if security_score < 30:
             return "critical"
         elif security_score < 50:
@@ -357,7 +344,6 @@ class TargetProfiler:
     def _map_attack_surface(
         self, technologies: list[TechFingerprint], headers: dict
     ) -> dict[str, Any]:
-        """Map attack surface based on detected technologies from tech_correlations.json."""
         surface: dict[str, Any] = {
             "web_framework": [],
             "database": [],
@@ -439,11 +425,9 @@ class TargetProfiler:
         return surface
 
     def get_profile(self, url: str) -> TargetProfile | None:
-        """Get cached profile for a URL."""
         return self.profiles.get(url)
 
     def get_attack_recommendations(self, profile: TargetProfile) -> list[str]:
-        """Generate attack recommendations based on profile and tech_correlations.json."""
         recommendations: list[str] = []
         _tech_names = [t.name.lower() for t in profile.technologies]
 

@@ -49,9 +49,6 @@ def _load_tech_correlations() -> dict[str, Any]:
 
 
 def _build_cold_start_knowledge(tech_names: list[str]) -> str:
-    """Build a KNOWLEDGE BASE brief from the static tech_correlations dataset for
-    the detected technologies. Returns "" when nothing matches. Used as the
-    cold-start brain before cross-session memory has learned anything."""
     if not tech_names:
         return ""
     tc = _load_tech_correlations()
@@ -101,7 +98,6 @@ def _chain_step_to_text(step: Any) -> str:
 def _build_graph_chain_prompt(
     vulnerabilities: list[dict[str, Any]],
 ) -> tuple[str, list[Any]]:
-    """Build a graph-correlation prompt from live findings only."""
     if len(vulnerabilities) < 2:
         return "", []
 
@@ -141,7 +137,6 @@ def _build_novel_discovery_prompt(
     vulnerabilities: list[dict[str, Any]],
     iteration: int,
 ) -> str:
-    """Generate a prompt for non-template attack paths from observed findings."""
     if not vulnerabilities:
         return ""
 
@@ -194,14 +189,6 @@ def _build_dynamic_anti_loop_rotation(
     iteration: int,
     recent_tools: list[str],
 ) -> str:
-    """Build an anti-repetition directive from live session data.
-
-    Instead of hardcoded vuln lists, this reads:
-    - What has actually been tested (from evidence log)
-    - What remains untested (from system.txt §11 + skills catalog)
-    - What tools have been used recently
-    - Current phase context
-    """
     tested_str = (
         ", ".join(sorted(tested_vuln_classes)) if tested_vuln_classes else "none yet"
     )

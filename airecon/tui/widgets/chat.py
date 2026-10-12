@@ -95,9 +95,7 @@ def _colorize_line(line: str) -> Text:
 
 
 class AutoCopyStatic(Static):
-    """Chat-body Static. Auto-copy is handled app-wide via the App's
-    `on_text_selected` handler, which fires reliably on mouse-up in
-    Textual 8.1+ (see textual.screen → TextSelected event)."""
+    pass
 
 
 class ChatMessage(Static):
@@ -685,7 +683,6 @@ class SubAgentBlock(Vertical):
         self.call_after_refresh(self._update_header)
     
     def _update_header(self) -> None:
-        """Update header to reflect completed state."""
         try:
             header = self.query_one(".subagent-header", Static)
             # Build completion note

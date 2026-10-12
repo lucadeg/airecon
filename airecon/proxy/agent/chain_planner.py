@@ -1,12 +1,3 @@
-"""Chain planner — dynamic exploit chain generation.
-
-Uses UnifiedVulnClassifier for category extraction (replaces hardcoded
-_extract_category_from_finding). Generates chains from:
-1. Hardcoded escalation patterns (seed data, learnable)
-2. Dynamic correlation of actual findings
-3. Novel chain discovery via LLM prompt injection
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -44,7 +35,6 @@ _LEARNED_PATTERNS_FILE = Path.home() / ".airecon" / "learning" / "learned_escala
 
 
 def _load_json_data(file_path: Path) -> dict[str, Any]:
-    """Load JSON data file with logging. Returns empty dict on failure."""
     try:
         if file_path.exists():
             with open(file_path) as f:
@@ -55,7 +45,6 @@ def _load_json_data(file_path: Path) -> dict[str, Any]:
 
 
 def _load_escalation_templates() -> dict[str, list[tuple[str, str]]]:
-    """Load escalation templates from merged escalation_patterns.json."""
     raw = _load_json_data(_ESCALATION_PATTERNS_FILE)
     templates = raw.get("templates", {})
     result: dict[str, list[tuple[str, str]]] = {}
@@ -177,10 +166,6 @@ class ExploitChain:
 
 
 def _extract_category_from_finding(finding: dict[str, Any]) -> str:
-    """Extract vulnerability category using UnifiedVulnClassifier.
-
-    Replaces the hardcoded category_mapping in chain_planner.py:186-248.
-    """
     finding_text = " ".join(
         str(finding.get(k, "")).lower()
         for k in ("finding", "title", "description", "category", "vuln_type")
@@ -305,7 +290,6 @@ def _build_novel_discovery_chains(
     iteration: int,
     max_chains: int,
 ) -> list[ExploitChain]:
-    """Create exploit chains from anomaly/composition signals in actual findings."""
     analysis = analyze_novel_vectors(vulnerabilities, iteration=iteration)
     combinations = analysis.get("combinations", [])
     tactics = analysis.get("innovative_tactics", [])

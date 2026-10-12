@@ -45,7 +45,6 @@ def _record_tool_completion(
     success: bool,
     output_file: str | None = None,
 ) -> None:
-    """Common boilerplate: save output, append history, increment counter."""
     duration = time.time() - start_time
     try:
         self._save_tool_output(tool_name, arguments, result)

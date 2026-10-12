@@ -110,11 +110,9 @@ class ParallelAgentRunner:
         self._event_callback: Callable[[str, AgentEvent], None] | None = None
 
     def set_progress_callback(self, callback: Any) -> None:
-        """Callback for text progress: callback(target, message)."""
         self._progress_callback = callback
 
     def set_event_callback(self, callback: Callable[[str, AgentEvent], None]) -> None:
-        """Callback for raw AgentEvent forwarding: callback(target, event)."""
         self._event_callback = callback
 
     def _report_progress(self, target: str, message: str) -> None:

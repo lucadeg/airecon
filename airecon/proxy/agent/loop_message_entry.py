@@ -484,7 +484,6 @@ class _MessageEntryMixin:
         return cfg
 
     async def _create_or_switch_session(self) -> None:
-        """Create a new session or switch to a different target, under caller-provided lock."""
         _session_changed = False
         if not self._session:
             self._session = SessionData(target=self.state.active_target)

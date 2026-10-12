@@ -1,21 +1,3 @@
-"""LLM backend for AIRecon (OpenAI-compatible).
-
-AIRecon talks to a single OpenAI-compatible ``/v1/chat/completions`` gateway —
-for example LiteLLM, vLLM, or a hosted OpenAI/Anthropic-compatible endpoint. A
-local gateway can also proxy a local Ollama/LLM server, so there is no separate
-native-LLM backend.
-
-``LLMClient`` is fully self-contained: it owns the shared httpx client, the
-request semaphore, dynamic timeouts and the performance-recording hooks the rest
-of the agent relies on, and speaks OpenAI's wire format directly.
-
-The streaming method yields **LLM-shaped** chunks — dicts of the form
-``{"message": {"content"/"thinking": ..., "tool_calls": [...]}, "done": bool}``
-with tool-call ``arguments`` decoded to a ``dict`` — which is exactly what
-``loop_tool_cycle`` already consumes, so the ~30 downstream modules need no
-changes to how they read responses.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -48,11 +30,6 @@ _ALLOWED_MESSAGE_KEYS = frozenset(
 
 
 def _to_openai_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Convert AIRecon-internal tool calls to OpenAI request format.
-
-    AIRecon stores ``arguments`` as a dict; OpenAI expects a JSON string and a
-    stable ``id`` + ``type`` on every call.
-    """
     out: list[dict[str, Any]] = []
     for tc in tool_calls or []:
         fn = tc.get("function", {}) or {}
@@ -72,15 +49,29 @@ def _to_openai_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, An
     return out
 
 
-def _to_openai_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Sanitize AIRecon's conversation into strict OpenAI chat messages.
+def _coalesce_system_messages(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    system_parts: list[str] = []
+    others: list[dict[str, Any]] = []
+    for m in messages:
+        if m.get("role") == "system":
+            text = str(m.get("content", "")).strip()
+            if text:
+                system_parts.append(text)
+        else:
+            others.append(m)
 
-    AIRecon often pairs a ``tool`` result with its call **by order** and stores
-    no ``tool_call_id``. OpenAI-compatible providers reject such a message with
-    ``tool_call_id is not set``, so we keep a FIFO of the ids assigned to the most
-    recent assistant ``tool_calls`` and bind each following ``tool`` result to the
-    next pending id.
-    """
+    if not system_parts:
+        return others
+    if len(system_parts) == 1 and messages and messages[0].get("role") == "system":
+        # Already a single leading system message — nothing to reorder.
+        return messages
+    merged = {"role": "system", "content": "\n\n".join(system_parts)}
+    return [merged] + others
+
+
+def _to_openai_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     converted: list[dict[str, Any]] = []
     pending_tool_ids: list[str] = []
     # Every id that actually appears in a preceding assistant ``tool_calls``.
@@ -148,7 +139,7 @@ def _to_openai_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
 
         converted.append(new_msg)
-    return converted
+    return _coalesce_system_messages(converted)
 
 
 # Hints like "reset after 6s", "retry after 10 seconds", "try again in 3s".
@@ -159,14 +150,10 @@ _RETRY_AFTER_RE = re.compile(
 
 
 def _is_retryable_status(status_code: int) -> bool:
-    """Transient HTTP statuses worth retrying: 5xx server errors and 429 rate
-    limits (and 408 request timeout). 4xx client errors are not retried."""
     return status_code == 429 or status_code == 408 or 500 <= status_code < 600
 
 
 def _retry_wait_seconds(status_code: int, message: str, attempt: int) -> float:
-    """Backoff for a retryable status. Honors a "reset/retry after Ns" hint in
-    the body (common on 429) when present, else exponential, capped at 30s."""
     base = 5.0 * (attempt + 1)
     if status_code == 429:
         m = _RETRY_AFTER_RE.search(message or "")
@@ -180,20 +167,12 @@ def _retry_wait_seconds(status_code: int, message: str, attempt: int) -> float:
 
 
 class LLMBackendHTTPError(RuntimeError):
-    """Raised when the LLM backend returns an HTTP error status.
-
-    Carries ``status_code`` so callers can distinguish retryable 5xx server
-    errors from non-retryable 4xx client errors.
-    """
-
     def __init__(self, status_code: int, message: str) -> None:
         super().__init__(message)
         self.status_code = status_code
 
 
 class LLMClient:
-    """Standalone OpenAI-compatible (LiteLLM/vLLM/hosted) LLM client."""
-
     _global_semaphore: asyncio.Semaphore | None = None
     _httpx_client: httpx.AsyncClient | None = None
     _initialized: bool = False
@@ -202,6 +181,8 @@ class LLMClient:
     # Models discovered at runtime to reject reasoning params (HTTP 400). Shared
     # across instances so the probe runs at most once per model per process.
     _reasoning_unsupported: set[str] = set()
+    # model -> params its gateway rejected with HTTP 400 (so we stop sending them).
+    _unsupported_params: dict[str, set[str]] = {}
 
     def __init__(self, base_url: str | None = None, model: str | None = None) -> None:
         cfg = get_config()
@@ -293,7 +274,6 @@ class LLMClient:
     def _apply_options(
         self, payload: dict[str, Any], options: dict[str, Any] | None
     ) -> None:
-        """Translate AIRecon generation options to OpenAI request params."""
         cfg = get_config()
         max_tokens = cfg.openai_max_tokens
         temperature: float | None = getattr(cfg, "openai_temperature", None)
@@ -315,26 +295,18 @@ class LLMClient:
         if temperature is not None:
             payload["temperature"] = float(temperature)
 
+        # Local-gateway tuning. Strict clouds reject these; _maybe_degrade_
+        # unsupported_param strips and retries. Ollama /v1 ignores num_ctx —
+        # set it server-side (OLLAMA_CONTEXT_LENGTH / Modelfile).
+        if options:
+            _stripped = LLMClient._unsupported_params.get(self.model, set())
+            for _k in ("num_ctx", "num_keep", "repeat_penalty"):
+                _v = options.get(_k)
+                if _v is not None and _k not in _stripped:
+                    payload[_k] = _v
+
     @staticmethod
     def _resolve_thinking_strategy(model: str, mode: str) -> str:
-        """Decide how to request reasoning from the gateway.
-
-        Returns one of: "off", "reasoning_effort", "enable_thinking".
-
-        There is deliberately NO model-name list here. Guessing a model's
-        reasoning capability from its name does not scale (GPT, Claude, Qwen,
-        Gemini, Grok, DeepSeek… all differ and new models ship constantly).
-        Instead:
-          * An explicit ``llm_thinking_request_mode`` (off|reasoning_effort|
-            enable_thinking) is always honored.
-          * In ``auto`` we use the OpenAI-standard ``reasoning_effort`` parameter
-            and rely on RUNTIME capability detection: if the backend rejects it
-            with an HTTP 400 "unsupported parameter" (which is exactly what the
-            OpenAI API returns for non-reasoning models), the client strips the
-            param, remembers that for the model, and retries — see
-            ``_maybe_degrade_reasoning``. ``enable_thinking`` (a non-standard
-            vLLM/SGLang chat-template flag) stays an explicit opt-in.
-        """
         mode = (mode or "auto").strip().lower()
         if mode in ("off", "reasoning_effort", "enable_thinking"):
             return mode
@@ -349,7 +321,6 @@ class LLMClient:
         }.get(self._thinking_intensity, "medium")
 
     def _apply_thinking(self, payload: dict[str, Any], think: bool) -> None:
-        """Translate the agent's `think` decision into gateway request params."""
         if not self._enable_thinking:
             return
         strat = self._thinking_strategy
@@ -368,14 +339,6 @@ class LLMClient:
 
     @staticmethod
     def _is_unsupported_reasoning_error(status_code: int, body: str) -> bool:
-        """True if an HTTP 400 indicates the backend rejected reasoning params.
-
-        OpenAI (and compatible gateways) return 400 with messages like
-        "Unsupported parameter: 'reasoning_effort'" or "'reasoning.effort' is not
-        supported with this model" for non-reasoning models. We detect that text
-        so we can degrade gracefully instead of failing the run — no model-name
-        list required.
-        """
         if status_code != 400:
             return False
         b = (body or "").lower()
@@ -403,11 +366,6 @@ class LLMClient:
     def _maybe_degrade_reasoning(
         self, payload: dict[str, Any], status_code: int, body: str
     ) -> bool:
-        """Strip reasoning params if the backend rejected them; remember the model.
-
-        Returns True when something was stripped (caller should retry the request
-        without reasoning params).
-        """
         if not self._is_unsupported_reasoning_error(status_code, body):
             return False
         removed = False
@@ -427,6 +385,47 @@ class LLMClient:
                 self.model,
             )
         return removed
+
+    @staticmethod
+    def _named_unsupported_param(body: str) -> str | None:
+        m = re.search(
+            r"(?:unsupported|unknown|unexpected|unrecognized|invalid|not\s+"
+            r"(?:a\s+)?(?:valid|supported|permitted))[^'\"]*['\"]([a-zA-Z0-9_.]+)['\"]",
+            body or "",
+            re.IGNORECASE,
+        )
+        return m.group(1) if m else None
+
+    # Non-standard params we inject; safe to strip if a gateway rejects them.
+    _OPTIONAL_PARAMS = ("num_ctx", "num_keep", "repeat_penalty")
+
+    def _maybe_degrade_unsupported_param(
+        self, payload: dict[str, Any], status_code: int, body: str
+    ) -> bool:
+        if status_code != 400:
+            return False
+        body_l = (body or "").lower()
+        to_strip: set[str] = set()
+        # Strip any optional param we sent whose name appears in the 400 body —
+        # catches every provider wording (OpenAI/OpenRouter/Azure/vLLM).
+        for k in self._OPTIONAL_PARAMS:
+            if k in payload and k.lower() in body_l:
+                to_strip.add(k)
+        named = self._named_unsupported_param(body)
+        if named and named in payload and named not in ("model", "messages", "stream"):
+            to_strip.add(named)
+        if not to_strip:
+            return False
+        for k in to_strip:
+            payload.pop(k, None)
+        LLMClient._unsupported_params.setdefault(self.model, set()).update(to_strip)
+        logger.warning(
+            "Backend rejected param(s) %s for model=%s; stripping for this model "
+            "and retrying.",
+            sorted(to_strip),
+            self.model,
+        )
+        return True
 
     async def _post(
         self, endpoint: str, json_data: dict[str, Any], timeout: float
@@ -652,10 +651,17 @@ class LLMClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
-        if tools:
+        if tools and self._supports_native_tools:
             # AIRecon already builds tools in OpenAI function-schema shape
             # ({"type": "function", "function": {...}}), so pass them through.
             payload["tools"] = tools
+        elif tools and not self._supports_native_tools:
+            # Native tools disabled: omit `tools` (some Ollama templates reject
+            # tool-parser generation) and fall back to text-mode <tool_call>.
+            logger.debug(
+                "Native tools disabled — omitting %d tool schemas from payload",
+                len(tools),
+            )
         self._apply_options(payload, options)
         # Restore "Deep Thinking Model Support" on the OpenAI/gateway path: turn
         # the agent's per-iteration `think` decision into a real reasoning
@@ -701,6 +707,8 @@ class LLMClient:
                             # rejected reasoning params, strip them and retry the
                             # same request instead of failing the run.
                             if self._maybe_degrade_reasoning(
+                                payload, resp.status_code, body
+                            ) or self._maybe_degrade_unsupported_param(
                                 payload, resp.status_code, body
                             ):
                                 continue
@@ -965,7 +973,6 @@ class LLMClient:
         return cfg.llm_chunk_timeout
 
     def _record_response_time(self, response_time: float) -> None:
-        """Record a response time for adaptive timeout calculations."""
         if not hasattr(self, "_response_times"):
             self._response_times = []
         if not hasattr(self, "_max_response_times"):
@@ -976,7 +983,6 @@ class LLMClient:
             self._response_times = self._response_times[-max_len:]
 
     def get_response_time_stats(self) -> Dict[str, float]:
-        """Avg/min/max of the last 10 response times."""
         if not hasattr(self, "_response_times"):
             self._response_times = []
         times = self._response_times[-10:] if self._response_times else []
@@ -1028,6 +1034,5 @@ class LLMClient:
 
 
 def create_llm_client(model: str | None = None) -> LLMClient:
-    """Return the configured OpenAI-compatible LLM client."""
     cfg = get_config()
     return LLMClient(model=model or cfg.openai_model)

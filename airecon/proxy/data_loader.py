@@ -12,7 +12,6 @@ _DATA_DIR = Path(__file__).parent / "data"
 
 
 def _load_json(filename: str) -> dict[str, Any]:
-    """Load a JSON file from the data directory. Returns empty dict on failure."""
     path = _DATA_DIR / filename
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -27,7 +26,6 @@ _UNIFIED_PATTERNS: dict[str, Any] | None = None
 
 
 def _load_unified_patterns() -> dict[str, Any]:
-    """Load unified pattern catalog. Falls back to legacy files if unified not found."""
     global _UNIFIED_PATTERNS
     if _UNIFIED_PATTERNS is not None:
         return _UNIFIED_PATTERNS
@@ -50,18 +48,15 @@ def _load_unified_patterns() -> dict[str, Any]:
 
 
 def load_vuln_patterns() -> dict[str, Any]:
-    """Load unified vulnerability patterns (merged from patterns.json, business_logic_patterns.json, zeroday_patterns.json)."""
     return _load_unified_patterns()
 
 
 def load_vuln_hypothesis() -> list[dict[str, Any]]:
-    """Load vulnerability hypothesis list from unified patterns."""
     data = _load_unified_patterns()
     return [v for k, v in data.items() if not k.startswith("_")]
 
 
 def load_pattern_by_category(category: str) -> dict[str, Any] | None:
-    """Get a single pattern entry by name from unified catalog."""
     data = _load_unified_patterns()
     entry = data.get(category)
     if entry and not isinstance(entry, dict):
@@ -72,19 +67,16 @@ def load_pattern_by_category(category: str) -> dict[str, Any] | None:
 # ── Legacy compatibility — still loads from unified catalog ──────────────────
 
 def load_expert_testing_patterns() -> dict[str, Any]:
-    """Load expert testing patterns (from unified catalog, filtered by severity)."""
     data = _load_unified_patterns()
     return {k: v for k, v in data.items() if not k.startswith("_") and v.get("severity") in ("HIGH", "CRITICAL")}
 
 
 def load_zeroday_patterns() -> dict[str, Any]:
-    """Load zeroday/advanced patterns (from unified catalog, CRITICAL severity)."""
     data = _load_unified_patterns()
     return {k: v for k, v in data.items() if not k.startswith("_") and v.get("severity") == "CRITICAL"}
 
 
 def load_business_logic_patterns() -> dict[str, Any]:
-    """Load business logic patterns (from unified catalog, business-related entries)."""
     data = _load_unified_patterns()
     return {
         k: v for k, v in data.items()
@@ -96,7 +88,6 @@ def load_business_logic_patterns() -> dict[str, Any]:
 
 
 def load_objective_patterns() -> dict[str, Any]:
-    """Load objective patterns (objectives section from unified catalog)."""
     data = _load_unified_patterns()
     objectives = data.get("objectives", {})
     if isinstance(objectives, dict):
@@ -105,7 +96,6 @@ def load_objective_patterns() -> dict[str, Any]:
 
 
 def load_vuln_hypothesis_legacy() -> list[dict[str, Any]]:
-    """Load vuln hypothesis (from unified catalog)."""
     data = _load_unified_patterns()
     return [
         {"type": name, "patterns": entry.get("indicators", [])}
@@ -118,7 +108,6 @@ def load_vuln_hypothesis_legacy() -> list[dict[str, Any]]:
 
 
 def load_verification_patterns() -> dict[str, Any]:
-    """Load verification patterns (clean response, dynamic content, honeypot, etc.)."""
     return _load_json("verification_patterns.json")
 
 
@@ -126,22 +115,12 @@ def load_verification_patterns() -> dict[str, Any]:
 
 
 def load_refusal_markers() -> list[str]:
-    """Load lowercase substrings that flag an LLM-side refusal (declined task).
-
-    Used only to label a model refusal clearly to the user — refusals are an
-    LLM/provider behaviour, not an AIRecon bug.
-    """
     data = _load_json("refusal_markers.json")
     markers = data.get("markers", []) if isinstance(data, dict) else []
     return [str(m).lower() for m in markers if str(m).strip()]
 
 
 def load_awaiting_input_markers() -> list[str]:
-    """Load lowercase substrings that flag the model asking for a new objective.
-
-    Used only to end a text-only watchdog abort gracefully (model considers the
-    step finished and is awaiting operator input) instead of erroring out.
-    """
     data = _load_json("awaiting_input_markers.json")
     markers = data.get("markers", []) if isinstance(data, dict) else []
     return [str(m).lower() for m in markers if str(m).strip()]
@@ -151,7 +130,6 @@ def load_awaiting_input_markers() -> list[str]:
 
 
 def load_file_extensions() -> dict[str, Any]:
-    """Load file extension categories (static, high_value, document, backend)."""
     return _load_json("file_extensions.json")
 
 
@@ -159,7 +137,6 @@ def load_file_extensions() -> dict[str, Any]:
 
 
 def load_endpoint_patterns() -> dict[str, Any]:
-    """Load endpoint and subdomain scoring patterns."""
     return _load_json("endpoint_patterns.json")
 
 
@@ -167,7 +144,6 @@ def load_endpoint_patterns() -> dict[str, Any]:
 
 
 def load_tech_correlations() -> dict[str, Any]:
-    """Load technology correlation data (vulns, paths, tools, severity)."""
     return _load_json("tech_correlations.json")
 
 
@@ -175,7 +151,6 @@ def load_tech_correlations() -> dict[str, Any]:
 
 
 def load_tools_meta() -> dict[str, Any]:
-    """Load tools metadata (categories, tuning, hints, etc.)."""
     return _load_json("tools_meta.json")
 
 
@@ -183,7 +158,6 @@ def load_tools_meta() -> dict[str, Any]:
 
 
 def load_tools() -> list[dict[str, Any]]:
-    """Load tool definitions from tools.json."""
     path = _DATA_DIR / "tools.json"
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -196,7 +170,6 @@ def load_tools() -> list[dict[str, Any]]:
 
 
 def load_fuzzer_data() -> dict[str, Any]:
-    """Load fuzzer payloads, vulnerable patterns, and chain rules."""
     return _load_json("fuzzer_data.json")
 
 
@@ -204,7 +177,6 @@ def load_fuzzer_data() -> dict[str, Any]:
 
 
 def load_waf_signatures() -> dict[str, Any]:
-    """Load WAF detection signatures."""
     return _load_json("waf_signatures.json")
 
 
@@ -212,7 +184,6 @@ def load_waf_signatures() -> dict[str, Any]:
 
 
 def load_waf_bypass_strategies(waf_name: str) -> list[str]:
-    """Load WAF bypass strategies for a specific WAF."""
     data = _load_json("waff_bypass.json")
     strategies = data.get("BYPASS_STRATEGIES", {})
     waf_key = waf_name.lower().replace(" ", "_")
@@ -228,7 +199,6 @@ def load_waf_bypass_strategies(waf_name: str) -> list[str]:
 
 
 def load_recon_tools() -> set[str]:
-    """Load all reconnaissance tool names from tools_meta.json."""
     meta = _load_json("tools_meta.json")
     categories = meta.get("categories", {}).get("reconnaissance", {})
     tools: set[str] = set()
@@ -243,7 +213,6 @@ def load_recon_tools() -> set[str]:
 
 
 def load_attack_chains() -> list[dict[str, Any]]:
-    """Load and normalize attack chains from attack_chains.json."""
     raw = _load_json("attack_chains.json")
     if not raw:
         return []
@@ -293,7 +262,6 @@ def merge_headers(
     base_headers: dict[str, str] | None,
     override_headers: dict[str, str] | None,
 ) -> dict[str, str] | None:
-    """Merge two header dicts. Override takes precedence."""
     if not base_headers and not override_headers:
         return None
     merged: dict[str, str] = {}
@@ -330,11 +298,6 @@ INT_TO_SEVERITY: dict[int, str] = {
 
 
 def severity_to_int(severity: Any) -> int:
-    """Convert a severity value to integer (1-5 scale).
-
-    Accepts numeric values, numeric strings, and common labels emitted by
-    heterogeneous tools such as HIGH/critical/WARNING/ERROR.
-    """
     if isinstance(severity, (int, float)) and not isinstance(severity, bool):
         return max(1, min(int(severity), 5))
 
@@ -367,7 +330,6 @@ def severity_to_int(severity: Any) -> int:
 
 
 def int_to_severity(value: Any) -> str:
-    """Convert integer to severity label (1-5 scale)."""
     return INT_TO_SEVERITY.get(severity_to_int(value), "INFO")
 
 

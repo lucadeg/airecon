@@ -29,7 +29,6 @@ _COMPILED_TRACKING_PATTERNS = [
 
 
 def _is_tracking_or_asset_url(url: str) -> bool:
-    """Check if a URL is a tracking pixel, analytics endpoint, or static asset."""
     for pattern in _COMPILED_TRACKING_PATTERNS:
         if pattern.search(url):
             return True
@@ -47,7 +46,6 @@ def _is_tracking_or_asset_url(url: str) -> bool:
 
 
 def _extract_domain_from_url(page_url: str) -> str:
-    """Extract domain identifier from URL for file naming."""
     if not page_url:
         return "unknown"
     netloc = urlparse(page_url).netloc.replace(":", "_")
@@ -61,10 +59,6 @@ def _save_browser_artifact(
     content: str,
     extra_data: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
-    """
-    Consolidate file saving logic for browser artifacts (source, logs, network).
-    Returns (saved_path, note_message).
-    """
     domain = _extract_domain_from_url(page_url)
     file_map = {
         "source": "source_{}.txt",
@@ -104,7 +98,6 @@ def _save_browser_artifact(
 
 class _BrowserExecutorMixin:
     def _format_network_entry(self, entry: dict[str, Any]) -> str:
-        """Format a single network entry for display."""
         lines = []
         etype = entry.get("type", "?")
         url = entry.get("url", "")

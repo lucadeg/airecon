@@ -165,8 +165,8 @@ def _read_sample_lines(file_path: Path, n: int = 10) -> list[str]:
                 if i >= n:
                     break
                 sample.append(line.rstrip())
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Could not sample lines from %s: %s", file_path, e)
     return sample
 
 

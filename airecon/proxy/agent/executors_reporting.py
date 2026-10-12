@@ -446,11 +446,6 @@ class _ReportingExecutorMixin:
         return None
 
     def _verify_before_report(self, arguments: dict[str, Any]) -> str | None:
-        """Synchronous pre-flight check against known-false-positive patterns.
-
-        Does NOT classify vulnerability types — that's the LLM's job via prompts.
-        Only rejects claims that match data-driven FP indicators.
-        """
         poc_desc = str(arguments.get("poc_description", "")).strip()
         poc_code = str(arguments.get("poc_script_code", "")).strip()
         title = str(arguments.get("title", "")).strip()
@@ -522,8 +517,6 @@ class _ReportingExecutorMixin:
         return "", False
 
     def _verification_http_headers(self) -> dict[str, str] | None:
-        """Best-effort auth headers so authed endpoints are tested as the agent
-        sees them — prevents false 'unreproducible' blocks on protected routes."""
         for attr in ("auth_headers", "session_headers", "http_headers"):
             headers = getattr(self.state, attr, None)
             if isinstance(headers, dict) and headers:
