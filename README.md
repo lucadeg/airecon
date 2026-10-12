@@ -287,6 +287,9 @@ openai_api_key: "sk-..."
 
 AIRecon can connect to external MCP servers and expose their tools dynamically as `mcp_<server>` tools.
 
+For opt-in, keyless web search and page fetching, see the runnable
+[Parallel Search MCP example](examples/mcp/README.md).
+
 Config file: `~/.airecon/mcp.json`
 
 **Example config:**

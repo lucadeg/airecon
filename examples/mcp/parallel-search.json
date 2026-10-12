@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "parallel": {
+      "transport": "http",
+      "url": "https://search.parallel.ai/mcp",
+      "enabled": true,
+      "headers": {
+        "User-Agent": "airecon/1.7.1 (Parallel Search MCP example)"
+      }
+    }
+  }
+}
